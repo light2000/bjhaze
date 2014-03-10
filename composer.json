@@ -1,0 +1,19 @@
+{
+	"name": "bjhaze/php5.4",
+	"description": "bjhaze simple framework",
+	"keywords": ["bjhaze"],
+	"license": "MIT",
+	"require": {
+
+	},
+	"autoload": {
+		"classmap": [
+			"app/controllers",
+			"app/models"
+		],
+		"psr-0": {
+            "BJHaze": "vendor/bjhaze/framework/src"
+        }
+	},
+	"minimum-stability": "stable"
+}
