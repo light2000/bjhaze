@@ -30,15 +30,15 @@ class Manager
      */
     protected $commander;
 
-    public function __construct (array $connections, $defaultConnection = null)
+    public function __construct(array $connections, $defaultConnection = null)
     {
         static $def = array(
-                'masters' => null,
-                'slaves' => null,
-                'username' => '',
-                'password' => '',
-                'prefix' => null,
-                'attributes' => null
+            'masters' => array(),
+            'slaves' => array(),
+            'username' => null,
+            'password' => null,
+            'prefix' => null,
+            'attributes' => null
         );
         foreach ($connections as $key => $connection)
             $this->connections[$key] = array_merge($def, $connection);
@@ -50,29 +50,27 @@ class Manager
     /**
      * Create a connection instance
      *
-     * @param array $config
+     * @param array $config            
      */
-    protected function buildConnection ($conf)
+    protected function buildConnection($conf)
     {
-        return new Connector($conf['masters'], $conf['slaves'], $conf['username'], $conf['password'], 
-                $conf['prefix'], $conf['attributes']);
+        return new Connector($conf['masters'], $conf['slaves'], $conf['username'], $conf['password'], $conf['prefix'], $conf['attributes']);
     }
 
     /**
      * Get Connector by key
      *
-     * @param string $connection
+     * @param string $connection            
      * @return \BJHaze\Database\Connector
      */
-    public function getConnection ($connection = null)
+    public function getConnection($connection = null)
     {
         if (null == $connection)
             $connection = $this->defaultConnection;
         
         if (! empty($this->connections[$connection]))
             if (is_array($this->connections[$connection]))
-                return $this->connections[$connection] = $this->buildConnection(
-                        $this->connections[$connection]);
+                return $this->connections[$connection] = $this->buildConnection($this->connections[$connection]);
             else
                 return $this->connections[$connection];
     }
@@ -82,7 +80,7 @@ class Manager
      *
      * @return void
      */
-    public function close ($connection = null)
+    public function close($connection = null)
     {
         if (empty($connection))
             foreach ($this->bindings as $connection)
@@ -92,112 +90,140 @@ class Manager
     }
 
     /**
-     * Get current SQL statement build in Commander
+     * Get current SQL statement by Commander
      *
-     * @param string $connection
-     * @param boolean $master
+     * @param string $connection            
+     * @param boolean $master            
+     * @param array $query            
      * @throws \LogicException
-     * @return array
+     * @return string
      */
-    protected function getCommanderQuery ($connection, $master)
+    protected function buildQuery($connection, $master, array $query = null)
     {
-        if (null != ($query = $this->commander->buildQuery(
-                $this->getConnection($connection)
-                    ->getDriver($master))))
-            return $query;
+        if (null != ($sql = $this->commander->buildQuery($this->getConnection($connection)
+            ->getDriver($master), $query)))
+            return $sql;
         else
             throw new \LogicException('No SQL statement build yet');
     }
 
-    public function getSQLStatement ($connection = null)
+    /**
+     * Get count sql by Commander
+     *
+     * @param string $connection            
+     * @param boolean $master            
+     * @param array $query            
+     * @throws \LogicException
+     * @return Ambigous <string, NULL>
+     */
+    protected function buildCountQuery($connection, $master)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, true);
-        
-        return $this->getConnection($connection)->getSQLStatement($sql, $params, $frequency);
+        if (null != ($sql = $this->commander->buildCountQuery($this->getConnection($connection)
+            ->getDriver($master))))
+            return $sql;
+        else
+            throw new \LogicException('No SQL statement build yet');
+    }
+
+    /**
+     * Get current SQL statement
+     *
+     * @param string $connection            
+     * @return array
+     */
+    public function getSQLStatement($connection = null)
+    {
+        return $this->getConnection($connection)->getSQLStatement($this->buildQuery($connection, true), $this->commander->getParams(), $this->commander->getFrequency());
     }
 
     /**
      * Executes the SQL statement use master server.
      *
-     * @param string $connection
+     * @param string $connection            
      * @return integer rows affected.
      */
-    public function execute ($connection = null)
+    public function execute($connection = null)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, true);
+        $result = $this->getConnection($connection)->execute($this->buildQuery($connection, true), $this->commander->getParams(), $this->commander->getFrequency());
+        $this->commander->clearSQLStatement();
         
-        return $this->getConnection($connection)->execute($sql, $params, $frequency);
+        return $result;
     }
 
     /**
      * Get result with count
      *
-     * @param string $master
-     * @param string $connection
+     * @param string $master            
+     * @param string $connection            
      * @return multitype:
      */
-    public function queryPaging ($master = false, $connection = null)
+    public function queryPaging($connection = null, $master = false)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, $master);
+        $total = $this->getConnection($connection)->queryScalar($this->buildCountQuery($connection, $master), clone $this->commander->getParams(), $master);
         
-        $result = $this->getConnection($connection)->queryAll($sql, clone $params, $master);
+        $rows = $this->getConnection($connection)->queryAll($this->buildQuery($connection, $master), $this->commander->getParams(), $master);
         
-        $count = $this->getConnection($connection)->queryScalar(
-                preg_replace('/SELECT (.*?) FROM/is', 'SELECT COUNT(*) FROM', $sql), $params, 
-                $master);
+        $this->commander->clearSQLStatement();
         
-        return compact('result', 'count');
+        return compact('rows', 'total');
     }
 
     /**
      * Executes the SQL statement and returns all rows.
      *
-     * @param boolean $master whether use master server
-     * @param string $connection
+     * @param boolean $master
+     *            whether use master server
+     * @param string $connection            
      * @return array
      */
-    public function queryAll ($master = false, $connection = null)
+    public function queryAll($connection = null, $master = false)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, $master);
+        $result = $this->getConnection($connection)->queryAll($this->buildQuery($connection, $master), $this->commander->getParams(), $master);
+        $this->commander->clearSQLStatement();
         
-        return $this->getConnection($connection)->queryAll($sql, $params, $master);
+        return $result;
     }
 
     /**
      * Executes the SQL statement and returns the first row of the result.
      *
-     * @param boolean $master whether use master server
-     * @param string $connection
+     * @param boolean $master
+     *            whether use master server
+     * @param string $connection            
      * @return mixed
      */
-    public function queryRow ($master = false, $connection = null)
+    public function queryRow($connection = null, $master = false)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, $master);
+        $result = $this->getConnection($connection)->queryRow($this->buildQuery($connection, $master), $this->commander->getParams(), $master);
+        $this->commander->clearSQLStatement();
         
-        return $this->getConnection($connection)->queryRow($sql, $params, $master);
+        return $result;
     }
 
     /**
      * Executes the SQL statement and returns the value of the first column in
      * the first row of data.
      *
-     * @param boolean $master whether use master server
+     * @param boolean $master
+     *            whether use master server
+     * @param string $connection            
      * @return mixed
      */
-    public function queryScalar ($master = false, $connection = null)
+    public function queryScalar($connection = null, $master = false)
     {
-        list ($sql, $params, $frequency) = $this->getCommanderQuery($connection, $master);
+        $result = $this->getConnection($connection)->queryScalar($this->buildQuery($connection, $master), $this->commander->getParams(), $master);
+        $this->commander->clearSQLStatement();
         
-        return $this->getConnection($connection)->queryScalar($sql, $params, $master);
+        return $result;
     }
 
     /**
      * Sets the SELECT part of the query.
      *
-     * @param array $columns
+     * @param array $columns            
      * @return \BJHaze\Database\Manager
      */
-    public function select ($columns = null)
+    public function select($columns = null)
     {
         if (func_num_args() > 1)
             $columns = func_get_args();
@@ -209,10 +235,10 @@ class Manager
     /**
      * Sets the SELECT part of the query with the DISTINCT flag turned on.
      *
-     * @param mixed $columns
+     * @param mixed $columns            
      * @return \BJHaze\Database\Manager
      */
-    public function selectDistinct ($columns = null)
+    public function selectDistinct($columns = null)
     {
         if (func_num_args() > 1)
             $columns = func_get_args();
@@ -224,10 +250,10 @@ class Manager
     /**
      * Sets the FROM part of the query.
      *
-     * @param mixed $tables
+     * @param mixed $tables            
      * @return \BJHaze\Database\Manager
      */
-    public function from ($tables)
+    public function from($tables)
     {
         if (func_num_args() > 1)
             $tables = func_get_args();
@@ -239,11 +265,11 @@ class Manager
     /**
      * Sets the WHERE part of the query.
      *
-     * @param string $condition
-     * @param mixed $params
+     * @param string $condition            
+     * @param mixed $params            
      * @return \BJHaze\Database\Manager
      */
-    public function where ($condition, $params = null)
+    public function where($condition, $params = null)
     {
         if (func_num_args() > 1) {
             $params = array_slice(func_get_args(), 1);
@@ -259,11 +285,11 @@ class Manager
      * Appends given condition to the existing WHERE part of the query with 'OR'
      * operator.
      *
-     * @param string $condition
-     * @param array $params
+     * @param string $condition            
+     * @param array $params            
      * @return \BJHaze\Database\Manager
      */
-    public function orWhere ($condition, $params = null)
+    public function orWhere($condition, $params = null)
     {
         if (func_num_args() > 1) {
             $params = array_slice(func_get_args(), 1);
@@ -278,12 +304,12 @@ class Manager
     /**
      * Appends an INNER JOIN part to the query.
      *
-     * @param string $table
-     * @param string $condition
-     * @param mixed $params
+     * @param string $table            
+     * @param string $condition            
+     * @param mixed $params            
      * @return \BJHaze\Database\Manager
      */
-    public function join ($type, $table, $condition = '', $params = null)
+    public function join($type, $table, $condition = '', $params = null)
     {
         if (func_num_args() > 3) {
             $params = array_slice(func_get_args(), 3);
@@ -298,12 +324,12 @@ class Manager
     /**
      * Appends a LEFT OUTER JOIN part to the query.
      *
-     * @param string $table
-     * @param mixed $conditions
-     * @param array $params
+     * @param string $table            
+     * @param mixed $conditions            
+     * @param array $params            
      * @return \BJHaze\Database\Manager
      */
-    public function leftJoin ($table, $condition, $params = null)
+    public function leftJoin($table, $condition, $params = null)
     {
         if (func_num_args() > 2) {
             $params = array_slice(func_get_args(), 2);
@@ -318,10 +344,10 @@ class Manager
     /**
      * Sets the GROUP BY part of the query.
      *
-     * @param mixed $columns
+     * @param mixed $columns            
      * @return \BJHaze\Database\Manager
      */
-    public function group ($columns)
+    public function group($columns)
     {
         if (func_num_args() > 1)
             $columns = func_get_args();
@@ -333,11 +359,11 @@ class Manager
     /**
      * Sets the HAVING part of the query.
      *
-     * @param string $condition
-     * @param array $params
+     * @param string $condition            
+     * @param array $params            
      * @return \BJHaze\Database\Manager
      */
-    public function having ($condition, $params = null)
+    public function having($condition, $params = null)
     {
         if (func_num_args() > 2)
             $params = array_slice(func_get_args(), 1);
@@ -349,10 +375,10 @@ class Manager
     /**
      * Sets the ORDER BY part of the query.
      *
-     * @param mixed $columns.
+     * @param mixed $columns.            
      * @return \BJHaze\Database\Manager
      */
-    public function order ($columns)
+    public function order($columns)
     {
         if (func_num_args() > 1)
             $columns = func_get_args();
@@ -364,11 +390,11 @@ class Manager
     /**
      * Sets the LIMIT part of the query.
      *
-     * @param int $limit
-     * @param int $offset
+     * @param int $limit            
+     * @param int $offset            
      * @return \BJHaze\Database\Manager
      */
-    public function limit ($limit, $offset = null)
+    public function limit($limit, $offset = null)
     {
         $this->commander->limit($limit, $offset);
         
@@ -378,10 +404,10 @@ class Manager
     /**
      * Sets the OFFSET part of the query.
      *
-     * @param int $offset
+     * @param int $offset            
      * @return \BJHaze\Database\Manager
      */
-    public function offset ($offset)
+    public function offset($offset)
     {
         $this->commander->offset($offset);
         
@@ -391,10 +417,10 @@ class Manager
     /**
      * Appends a SQL statement using UNION operator.
      *
-     * @param string $sql
+     * @param string $sql            
      * @return \BJHaze\Database\Manager
      */
-    public function union ($sql)
+    public function union($sql)
     {
         $this->commander->union($sql);
         
@@ -404,11 +430,11 @@ class Manager
     /**
      * Creates an INSERT SQL statement.
      *
-     * @param string $table
-     * @param array $columns
+     * @param string $table            
+     * @param array $columns            
      * @return \BJHaze\Database\Manager
      */
-    public function insert ($table, array $columns = null)
+    public function insert($table, array $columns = null)
     {
         $this->commander->insert($table, $columns);
         
@@ -418,11 +444,11 @@ class Manager
     /**
      * Creates an UPDATE SQL statement.
      *
-     * @param string $table
-     * @param array $columns
+     * @param string $table            
+     * @param array $columns            
      * @return \BJHaze\Database\Manager
      */
-    public function update ($table, $column = null, $value = null)
+    public function update($table, $column = null, $value = null)
     {
         $this->commander->update($table, $column, $value);
         
@@ -432,12 +458,12 @@ class Manager
     /**
      * Self increment
      *
-     * @param string $key
-     * @param int $value
+     * @param string $key            
+     * @param int $value            
      * @throws LogicException
      * @return \BJHaze\Database\Manager
      */
-    public function increment ($key, $value = 1)
+    public function increment($key, $value = 1)
     {
         $this->commander->increment($key, $value);
         
@@ -447,12 +473,12 @@ class Manager
     /**
      * Self decrement Update
      *
-     * @param string $key
-     * @param int $value
+     * @param string $key            
+     * @param int $value            
      * @throws LogicException
      * @return \BJHaze\Database\Manager
      */
-    public function decrement ($key, $value = 1)
+    public function decrement($key, $value = 1)
     {
         $this->commander->decrement($key, $value);
         
@@ -462,10 +488,10 @@ class Manager
     /**
      * Creates a DELETE SQL statement.
      *
-     * @param string $table
+     * @param string $table            
      * @return \BJHaze\Database\Manager
      */
-    public function delete ($table)
+    public function delete($table)
     {
         $this->commander->delete($table);
         
@@ -475,11 +501,11 @@ class Manager
     /**
      * Use "ON DUPLICATE KEY UPDATE" After a Insert operation.(Support MYSQL Only)
      *
-     * @param string $operation
-     * @param mixed $params
+     * @param string $operation            
+     * @param mixed $params            
      * @return \BJHaze\Database\Manager
      */
-    public function onDuplicateUpdate ($operation, $params = null)
+    public function onDuplicateUpdate($operation, $params = null)
     {
         if (func_num_args() > 1)
             $params = array_slice(func_get_args(), 1);
@@ -487,4 +513,9 @@ class Manager
         
         return $this;
     }
+
+    /**
+     */
+    public function getLastInsertID()
+    {}
 }

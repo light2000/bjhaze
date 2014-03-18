@@ -92,7 +92,7 @@ class Request implements RequestInterface
      *
      * @return mixed
      */
-    public function getParams ()
+    public function getParams()
     {
         if ($this->getIsGet())
             return $_GET;
@@ -105,11 +105,11 @@ class Request implements RequestInterface
     /**
      * Returns the named GET or POST parameter value.
      *
-     * @param string $name
-     * @param mixed $default
+     * @param string $name            
+     * @param mixed $default            
      * @return mixed
      */
-    public function getParam ($name, $default = null)
+    public function getParam($name, $default = null)
     {
         return isset($_GET[$name]) ? $_GET[$name] : (isset($_POST[$name]) ? $_POST[$name] : $default);
     }
@@ -117,11 +117,11 @@ class Request implements RequestInterface
     /**
      * Returns the named GET parameter value.
      *
-     * @param string $name
-     * @param mixed $default
+     * @param string $name            
+     * @param mixed $default            
      * @return mixed
      */
-    public function getQuery ($name, $default = null)
+    public function getQuery($name, $default = null)
     {
         return isset($_GET[$name]) ? $_GET[$name] : $default;
     }
@@ -129,11 +129,11 @@ class Request implements RequestInterface
     /**
      * Returns the named POST parameter value.
      *
-     * @param string $name
-     * @param mixed $default
+     * @param string $name            
+     * @param mixed $default            
      * @return mixed
      */
-    public function getPost ($name, $default = null)
+    public function getPost($name, $default = null)
     {
         return isset($_POST[$name]) ? $_POST[$name] : $default;
     }
@@ -141,10 +141,10 @@ class Request implements RequestInterface
     /**
      * Set the post data
      *
-     * @param array $data
+     * @param array $data            
      * @return void
      */
-    public function setPost (array $data)
+    public function setPost(array $data)
     {
         $_POST = $data;
         $_SERVER['REQUEST_METHOD'] = 'POST';
@@ -153,11 +153,11 @@ class Request implements RequestInterface
     /**
      * Returns the named DELETE parameter value.
      *
-     * @param string $name
-     * @param mixed $default
+     * @param string $name            
+     * @param mixed $default            
      * @return mixed
      */
-    public function getDelete ($name, $default = null)
+    public function getDelete($name, $default = null)
     {
         if ($this->getIsDeleteRequest()) {
             $restParams = $this->getRestParams();
@@ -169,11 +169,11 @@ class Request implements RequestInterface
     /**
      * Returns the named PUT parameter value.
      *
-     * @param string $name
-     * @param mixed $defaultValue
+     * @param string $name            
+     * @param mixed $defaultValue            
      * @return mixed the PUT parameter value
      */
-    public function getPut ($name, $default = null)
+    public function getPut($name, $default = null)
     {
         if ($this->getIsPut()) {
             $restParams = $this->getRestParams();
@@ -188,7 +188,7 @@ class Request implements RequestInterface
      *
      * @return array
      */
-    public function getRestParams ()
+    public function getRestParams()
     {
         if ($this->_restParams === null) {
             $result = array();
@@ -198,7 +198,6 @@ class Request implements RequestInterface
                 parse_str($this->getRawBody(), $result);
             $this->_restParams = $result;
         }
-        
         return $this->_restParams;
     }
 
@@ -207,7 +206,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getRawBody ()
+    public function getRawBody()
     {
         static $rawBody;
         if ($rawBody === null)
@@ -218,10 +217,10 @@ class Request implements RequestInterface
     /**
      * Set the request uri.
      *
-     * @param string $uri
+     * @param string $uri            
      * @return void
      */
-    public function setRequestUri ($uri)
+    public function setRequestUri($uri)
     {
         $this->_requestUri = $uri;
     }
@@ -232,7 +231,7 @@ class Request implements RequestInterface
      * @return string
      * @throws \RuntimeException
      */
-    public function getRequestUri ()
+    public function getRequestUri()
     {
         if ($this->_requestUri === null) {
             if (isset($_SERVER['HTTP_X_REWRITE_URL'])) // IIS
@@ -241,30 +240,26 @@ class Request implements RequestInterface
                 $this->_requestUri = $_SERVER['REQUEST_URI'];
                 if (! empty($_SERVER['HTTP_HOST'])) {
                     if (strpos($this->_requestUri, $_SERVER['HTTP_HOST']) !== false)
-                        $this->_requestUri = preg_replace('/^\w+:\/\/[^\/]+/', '', 
-                                $this->_requestUri);
+                        $this->_requestUri = preg_replace('/^\w+:\/\/[^\/]+/', '', $this->_requestUri);
                 } else
-                    $this->_requestUri = preg_replace('/^(http|https):\/\/[^\/]+/i', '', 
-                            $this->_requestUri);
-            } elseif (isset($_SERVER['ORIG_PATH_INFO']))             // IIS 5.0 CGI
-            {
+                    $this->_requestUri = preg_replace('/^(http|https):\/\/[^\/]+/i', '', $this->_requestUri);
+            } elseif (isset($_SERVER['ORIG_PATH_INFO'])) { // IIS 5.0 CGI
                 $this->_requestUri = $_SERVER['ORIG_PATH_INFO'];
                 if (! empty($_SERVER['QUERY_STRING']))
                     $this->_requestUri .= '?' . $_SERVER['QUERY_STRING'];
             } else
                 throw new \RuntimeException('Unable to determine the request URI.');
         }
-        
         return $this->_requestUri;
     }
 
     /**
      * Sets the relative URL for the application.
      *
-     * @param string $value
+     * @param string $value            
      * @return void
      */
-    public function setBaseUrl ($value)
+    public function setBaseUrl($value)
     {
         $this->_baseUrl = $value;
     }
@@ -272,10 +267,11 @@ class Request implements RequestInterface
     /**
      * Returns the relative URL for the application.
      *
-     * @param boolean $absolute whether to return an absolute URL.
+     * @param boolean $absolute
+     *            whether to return an absolute URL.
      * @return string
      */
-    public function getBaseUrl ($absolute = false)
+    public function getBaseUrl($absolute = false)
     {
         if ($this->_baseUrl === null) {
             $this->_baseUrl = rtrim(dirname($this->getScriptUrl()), '\\/');
@@ -286,10 +282,10 @@ class Request implements RequestInterface
     /**
      * Sets the schema and host part of the application URL.
      *
-     * @param string $value
+     * @param string $value            
      * @return void
      */
-    public function setHostInfo ($value)
+    public function setHostInfo($value)
     {
         $this->_hostInfo = rtrim($value, '/');
     }
@@ -299,7 +295,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getHostInfo ()
+    public function getHostInfo()
     {
         if ($this->_hostInfo === null) {
             if ($this->getIsSecure())
@@ -323,11 +319,9 @@ class Request implements RequestInterface
      *
      * @return boolean if the request is sent via secure channel (https)
      */
-    public function getIsSecure ()
+    public function getIsSecure()
     {
-        return isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] == 'on' || $_SERVER['HTTPS'] == 1) ||
-                 isset($_SERVER['HTTP_X_FORWARDED_PROTO']) &&
-                 $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https';
+        return isset($_SERVER['HTTPS']) && ($_SERVER['HTTPS'] == 'on' || $_SERVER['HTTPS'] == 1) || isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https';
     }
 
     /**
@@ -338,14 +332,13 @@ class Request implements RequestInterface
      * @throws Exception if the request URI cannot be determined due to improper
      *         server configuration
      */
-    public function getPathInfo ()
+    public function getPathInfo()
     {
         if ($this->_pathInfo === null) {
             $pathInfo = $this->getScriptUrl();
             if (! $this->getShowScriptName())
                 $pathInfo = $this->getBaseUrl();
-            if (null !== $pathInfo && false === $pathInfo = substr($this->getRequestUri(), 
-                    strlen($pathInfo))) {
+            if (null !== $pathInfo && false === $pathInfo = substr($this->getRequestUri(), strlen($pathInfo))) {
                 // If substr() returns false then PATH_INFO is set to an empty string
                 return $this->_pathInfo = '/';
             }
@@ -360,9 +353,10 @@ class Request implements RequestInterface
     /**
      * Sets the relative URL for the application entry script.
      *
-     * @param string $value the relative URL for the application entry script.
+     * @param string $value
+     *            the relative URL for the application entry script.
      */
-    public function setScriptUrl ($value)
+    public function setScriptUrl($value)
     {
         $this->_scriptUrl = '/' . trim($value, '/');
     }
@@ -373,7 +367,7 @@ class Request implements RequestInterface
      * @throws RuntimeException when it is unable to determine the entry script URL.
      * @return string the relative URL of the entry script.
      */
-    public function getScriptUrl ()
+    public function getScriptUrl()
     {
         if ($this->_scriptUrl === null) {
             $scriptName = basename($_SERVER['SCRIPT_FILENAME']);
@@ -381,32 +375,29 @@ class Request implements RequestInterface
                 $this->_scriptUrl = $_SERVER['SCRIPT_NAME'];
             } elseif (basename($_SERVER['PHP_SELF']) === $scriptName) {
                 $this->_scriptUrl = $_SERVER['PHP_SELF'];
-            } elseif (isset($_SERVER['ORIG_SCRIPT_NAME']) &&
-                     basename($_SERVER['ORIG_SCRIPT_NAME']) === $scriptName) {
+            } elseif (isset($_SERVER['ORIG_SCRIPT_NAME']) && basename($_SERVER['ORIG_SCRIPT_NAME']) === $scriptName) {
                 $this->_scriptUrl = $_SERVER['ORIG_SCRIPT_NAME'];
             } elseif (false !== ($pos = strpos($_SERVER['PHP_SELF'], '/' . $scriptName))) {
                 $this->_scriptUrl = substr($_SERVER['SCRIPT_NAME'], 0, $pos) . "/" . $scriptName;
-            } elseif (isset($_SERVER['DOCUMENT_ROOT']) && strpos($_SERVER['SCRIPT_FILENAME'], 
-                    $_SERVER['DOCUMENT_ROOT']) === 0) {
-                $this->_scriptUrl = str_replace('\\', '/', 
-                        str_replace($_SERVER['DOCUMENT_ROOT'], '', $_SERVER['SCRIPT_FILENAME']));
+            } elseif (isset($_SERVER['DOCUMENT_ROOT']) && strpos($_SERVER['SCRIPT_FILENAME'], $_SERVER['DOCUMENT_ROOT']) === 0) {
+                $this->_scriptUrl = str_replace('\\', '/', str_replace($_SERVER['DOCUMENT_ROOT'], '', $_SERVER['SCRIPT_FILENAME']));
             } else {
                 throw new \RuntimeException('Unable to determine the entry script URL.');
             }
         }
-        
         return $this->_scriptUrl;
     }
 
     /**
      * Returns information about the capabilities of user browser.
      *
-     * @param string $userAgent the user agent to be analyzed. Defaults to null, meaning using the
-     *        current User-Agent HTTP header information.
+     * @param string $userAgent
+     *            the user agent to be analyzed. Defaults to null, meaning using the
+     *            current User-Agent HTTP header information.
      * @return array user browser capabilities.
      * @see http://www.php.net/manual/en/function.get-browser.php
      */
-    public function getBrowser ($userAgent = null)
+    public function getBrowser($userAgent = null)
     {
         return get_browser($userAgent, true);
     }
@@ -416,10 +407,11 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsMobileDevice ()
+    public function getIsMobileDevice()
     {
-        if (null === $this->_isMobileDevice)
+        if (null === $this->_isMobileDevice) {
             $this->_isMobileDevice = (boolean) $this->getBrowser()['ismobiledevice'];
+        }
         return $this->_isMobileDevice;
     }
 
@@ -428,7 +420,7 @@ class Request implements RequestInterface
      *
      * @return string request type, such as GET, POST, HEAD, PUT, DELETE.
      */
-    public function getRequestType ()
+    public function getRequestType()
     {
         return strtoupper(isset($_SERVER['REQUEST_METHOD']) ? $_SERVER['REQUEST_METHOD'] : 'GET');
     }
@@ -438,7 +430,7 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsGet ()
+    public function getIsGet()
     {
         return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 'GET');
     }
@@ -448,7 +440,7 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsPost ()
+    public function getIsPost()
     {
         return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 'POST');
     }
@@ -458,10 +450,9 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsDelete ()
+    public function getIsDelete()
     {
-        return isset($_SERVER['REQUEST_METHOD']) &&
-                 ! strcasecmp($_SERVER['REQUEST_METHOD'], 'DELETE');
+        return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 'DELETE');
     }
 
     /**
@@ -469,7 +460,7 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsPut ()
+    public function getIsPut()
     {
         return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 'PUT');
     }
@@ -479,10 +470,9 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsPatch ()
+    public function getIsPatch()
     {
-        return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 
-                'PATCH');
+        return isset($_SERVER['REQUEST_METHOD']) && ! strcasecmp($_SERVER['REQUEST_METHOD'], 'PATCH');
     }
 
     /**
@@ -490,10 +480,9 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsAjax ()
+    public function getIsAjax()
     {
-        return isset($_SERVER['HTTP_X_REQUESTED_WITH']) &&
-                 $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
+        return isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest';
     }
 
     /**
@@ -501,10 +490,9 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getIsFlash ()
+    public function getIsFlash()
     {
-        return isset($_SERVER['HTTP_USER_AGENT']) && (stripos($_SERVER['HTTP_USER_AGENT'], 
-                'Shockwave') !== false || stripos($_SERVER['HTTP_USER_AGENT'], 'Flash') !== false);
+        return isset($_SERVER['HTTP_USER_AGENT']) && (stripos($_SERVER['HTTP_USER_AGENT'], 'Shockwave') !== false || stripos($_SERVER['HTTP_USER_AGENT'], 'Flash') !== false);
     }
 
     /**
@@ -512,7 +500,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getUrlReferrer ()
+    public function getUrlReferrer()
     {
         return isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : null;
     }
@@ -522,7 +510,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getUserAgent ()
+    public function getUserAgent()
     {
         return isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : null;
     }
@@ -532,7 +520,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getUserHostAddress ()
+    public function getUserHostAddress()
     {
         return isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : null;
     }
@@ -542,7 +530,7 @@ class Request implements RequestInterface
      *
      * @return int
      */
-    public function getPort ()
+    public function getPort()
     {
         return isset($_SERVER['SERVER_PORT']) ? (int) $_SERVER['SERVER_PORT'] : ($this->getIsSecure() ? 443 : 80);
     }
@@ -552,7 +540,7 @@ class Request implements RequestInterface
      *
      * @return string
      */
-    public function getAcceptTypes ()
+    public function getAcceptTypes()
     {
         return isset($_SERVER['HTTP_ACCEPT']) ? $_SERVER['HTTP_ACCEPT'] : null;
     }
@@ -562,24 +550,25 @@ class Request implements RequestInterface
      *
      * @return boolean
      */
-    public function getShowScriptName ()
+    public function getShowScriptName()
     {
         if (null === $this->_showScriptName)
             $this->_showScriptName = 0 === strpos($this->getRequestUri(), $this->getScriptUrl());
-        
         return $this->_showScriptName;
     }
 
     /**
      * Redirects the browser to the specified URL.
      *
-     * @param string $url
-     * @param boolean $terminate
-     * @param integer $statusCode
+     * @param string $url            
+     * @param boolean $terminate            
+     * @param integer $statusCode            
      * @return void
      */
-    public function redirect ($url, $terminate = true, $statusCode = 302)
+    public function redirect($url, $terminate = true, $statusCode = 302)
     {
+        if ($url[0] == '/')
+            $url = $this->getBaseUrl() . $url;
         header('Location: ' . $url, true, $statusCode);
         if ($terminate)
             exit();
@@ -588,11 +577,11 @@ class Request implements RequestInterface
     /**
      * Set magic method
      *
-     * @param string $name
-     * @param mixed $value
+     * @param string $name            
+     * @param mixed $value            
      * @throws \UnexpectedValueException
      */
-    public function __set ($name, $value)
+    public function __set($name, $value)
     {
         $setter = 'set' . $name;
         if (method_exists($this, $setter))
@@ -606,10 +595,10 @@ class Request implements RequestInterface
     /**
      * Get magic method
      *
-     * @param string $name
+     * @param string $name            
      * @throws \UnexpectedValueException
      */
-    public function __get ($name)
+    public function __get($name)
     {
         $getter = 'get' . $name;
         if (method_exists($this, $getter))

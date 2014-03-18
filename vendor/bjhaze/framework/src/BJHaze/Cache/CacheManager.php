@@ -33,11 +33,12 @@ class CacheManager implements Engine\CacheInterface
     /**
      * Constructor
      *
-     * @param array $servers eg: driver => 'memcache', servers=>(..)
-     * @param string $prefix
-     * @param string $default
+     * @param array $servers
+     *            eg: driver => 'memcache', servers=>(..)
+     * @param string $prefix            
+     * @param string $default            
      */
-    public function __construct (array $servers, $keyPrefix = '', $default = null)
+    public function __construct(array $servers, $keyPrefix = '', $default = null)
     {
         $this->prefix = $keyPrefix;
         $this->engine = $default ?  : key($servers);
@@ -47,10 +48,10 @@ class CacheManager implements Engine\CacheInterface
     /**
      * Get the cache engine instance
      *
-     * @param string $key
+     * @param string $key            
      * @return CacheInterface
      */
-    public function getEngine ($key = NULL)
+    public function getEngine($key = NULL)
     {
         if (null == $key)
             $key = $this->engine;
@@ -60,62 +61,57 @@ class CacheManager implements Engine\CacheInterface
                     case 'apc':
                         $this->servers[$key] = new Engine\Apc($this->prefix);
                         break;
-                    case 'eaccelerator':
-                        $this->servers[$key] = new Engine\EAccelerator($this->prefix);
-                        break;
                     case 'memcache':
-                        $this->servers[$key] = new Engine\Memcache($this->servers[$key]['servers'], 
-                                $this->prefix);
+                        $this->servers[$key] = new Engine\Memcache($this->servers[$key]['servers'], $this->prefix);
                         break;
                     case 'memcached':
-                        $this->servers[$key] = new Engine\Memcached($this->servers[$key]['servers'], 
-                                $this->prefix);
+                        $this->servers[$key] = new Engine\Memcached($this->servers[$key]['servers'], $this->prefix);
                         break;
                     case 'redis':
-                        $this->servers[$key] = new Engine\Redis($this->servers[$key]['server'], 
-                                $this->prefix);
+                        $this->servers[$key] = new Engine\Redis($this->servers[$key]['server'], $this->prefix);
                 }
             }
+            
             return $this->servers[$key];
         }
     }
 
-    public function set ($key, $value, $ttl = 0)
+    public function set($key, $value, $ttl = 0)
     {
         return $this->getEngine()->set($key, $value, $ttl);
     }
 
-    public function mset (array $item, $ttl = 0)
+    public function mset(array $item, $ttl = 0)
     {
         return $this->getEngine()->mset($item, $ttl);
     }
 
-    public function get ($key)
+    public function get($key)
     {
         return $this->getEngine()->get($key);
     }
 
-    public function mget (array $keys)
+    public function mget(array $keys)
     {
         return $this->getEngine()->mget($keys);
     }
 
-    public function increment ($key, $step = 1)
+    public function increment($key, $step = 1)
     {
         return $this->getEngine()->inc($key, $step);
     }
 
-    public function decrement ($key, $step = 1)
+    public function decrement($key, $step = 1)
     {
         return $this->getEngine()->dec($key, $step);
     }
 
-    public function delete ($key)
+    public function delete($key)
     {
         return $this->getEngine()->delete($key);
     }
 
-    public function flush ()
+    public function flush()
     {
         return $this->getEngine()->flush();
     }

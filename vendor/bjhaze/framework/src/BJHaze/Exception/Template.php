@@ -1,5 +1,5 @@
-<h2><?php echo defined('BJHAZE_DEBUG') ? $exception->getMessage() : (isset($message) ? $message : 'system error');?></h2>
-<?php if (defined('BJHAZE_DEBUG')):?>
+<h2><?php echo isset($message) ? $message : mb_convert_encoding($exception->getMessage(), 'utf8', 'gbk');?></h2>
+<?php if (!isset($message)):?>
 <h4>
 <?php echo nl2br($exception->getTraceAsString()) ;?>
 </h4>

@@ -79,7 +79,7 @@ class Redis implements CacheInterface
         $serKey = sprintf('%x', crc32($server['host'] . $server['port']));
         if (empty(self::$redisInstances[$serKey])) {
             self::$redisInstances[$serKey] = new \Redis();
-            if ($this->server['pconnect'])
+            if ($server['pconnect'])
                 self::$redisInstances[$serKey]->pconnect($server['host'], $server['port'], 
                         $server['timeout']);
             else
@@ -120,12 +120,12 @@ class Redis implements CacheInterface
 
     public function get ($key)
     {
-        $this->getRedis()->get($this->prefix . $key);
+        return $this->getRedis()->get($this->prefix . $key);
     }
 
     public function mget (array $keys)
     {
-        $this->getRedis()->getMultiple(
+        return $this->getRedis()->getMultiple(
                 array_map(
                         function  ($key)
                         {

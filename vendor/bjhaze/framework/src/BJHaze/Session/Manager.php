@@ -5,6 +5,7 @@
  * @author zhifeng <a_3722@hotmail.com>
  */
 namespace BJHaze\Session;
+
 use SessionHandlerInterface;
 
 class Manager
@@ -14,7 +15,7 @@ class Manager
 
     protected $sessionHandler;
 
-    public function __construct (SessionHandlerInterface $sessionHandler)
+    public function __construct(SessionHandlerInterface $sessionHandler)
     {
         $this->sessionHandler = $sessionHandler;
     }
@@ -24,7 +25,7 @@ class Manager
      *
      * @return void
      */
-    public function start ()
+    public function start()
     {
         if ($this->boot)
             return;
@@ -38,7 +39,7 @@ class Manager
      *
      * @return void
      */
-    public function destroy ()
+    public function destroy()
     {
         session_destroy();
     }
@@ -46,10 +47,10 @@ class Manager
     /**
      * Session set
      *
-     * @param string $key
-     * @param mixed $value
+     * @param string $key            
+     * @param mixed $value            
      */
-    public function set ($key, $value)
+    public function set($key, $value)
     {
         $_SESSION[$key] = $value;
     }
@@ -57,10 +58,10 @@ class Manager
     /**
      * Session get
      *
-     * @param string $key
+     * @param string $key            
      * @return mixed
      */
-    public function get ($key)
+    public function get($key)
     {
         return isset($_SESSION[$key]) ? $_SESSION[$key] : null;
     }
@@ -68,10 +69,15 @@ class Manager
     /**
      * Session delete
      *
-     * @param string $key
+     * @param string $key            
      */
-    public function delete ($key)
+    public function delete($key)
     {
         unset($_SESSION[$key]);
+    }
+
+    public function __get($key)
+    {
+        return $this->get($key);
     }
 }

@@ -2,15 +2,16 @@
 /**
  *
  * Application class file.
- * 
+ *
  * @author zhifeng <a_3722@hotmail.com>
  */
 namespace BJHaze\Foundation;
+
 use Closure, SplPriorityQueue;
 use BJHaze\Http\RequestInterface;
 use BJHaze\Routing\RouterInterface;
 
-class Application extends Component
+class Application extends Container
 {
 
     /**
@@ -30,52 +31,99 @@ class Application extends Component
     /**
      * Constructor
      *
-     * @param array $config
+     * @param array $config            
      */
-    public function __construct (array $config)
+    public function __construct(array $config)
     {
         $components = array(
-                'request' => 'BJHaze\Http\Request',
-                'response' => 'BJHaze\Http\Response',
-                'validator' => 'BJHaze\Validation\Validator',
-                'cacheProvider' => 'BJHaze\Behavior\Cache',
-                'exceptionHandler' => 'BJHaze\Exception\Handler',
-                'sessionHandler' => array(
-                        'class' => 'BJHaze\Session\Handler\File'
-                ),
-                'session' => array(
-                        'class' => 'BJHaze\Session\Manager'
-                ),
-                'router' => array(
-                        'class' => 'BJHaze\Routing\RegexRouter'
-                ),
-                'encrypter' => array(
-                        'class' => 'BJHaze\Encryption\Encrypter'
-                ),
-                'db' => array(
-                        'class' => 'BJHaze\Database\Manager'
-                ),
-                'cache' => array(
-                        'class' => 'BJHaze\Cache\CacheManager'
-                )
+            'request' => array(
+                'class' => 'BJHaze\Http\Request'
+            ),
+            'validator' => array(
+                'class' => 'BJHaze\Validation\Validator'
+            ),
+            'cacheProvider' => array(
+                'class' => 'BJHaze\Behavior\Cache'
+            ),
+            'exceptionHandler' => array(
+                'class' => 'BJHaze\Exception\Handler'
+            ),
+            'response' => array(
+                'class' => 'BJHaze\Http\Response'
+            ),
+            'sessionHandler' => array(
+                'class' => 'BJHaze\Session\Handler\File'
+            ),
+            'session' => array(
+                'class' => 'BJHaze\Session\Manager',
+                'sessionHandler' => null
+            ),
+            'router' => array(
+                'class' => 'BJHaze\Routing\RegexRouter'
+            ),
+            'encrypter' => array(
+                'class' => 'BJHaze\Encryption\Encrypter'
+            ),
+            'db' => array(
+                'class' => 'BJHaze\Database\Manager'
+            ),
+            'cache' => array(
+                'class' => 'BJHaze\Cache\CacheManager'
+            )
         );
+        
+        static::$lateBindings = array_replace_recursive($components, $config);
+        
         $this['app'] = $this;
+        
         $this->registerPaths($config);
-        $this->resetLateBindings(array_replace_recursive($components, $config));
+        
         $this->initExceptionHandler();
+        
+        if (false == $config['composer'])
+            $this->registerIncludePath();
+        
+        if (! empty($config['timezone']))
+            date_default_timezone_set($config['timezone']);
     }
 
     /**
      * Set application paths
      *
-     * @param array $config
+     * @param array $config            
      * @return void
      */
-    public function registerPaths (array $config)
+    public function registerPaths(array $config)
     {
-        $this['dir'] = $config['dir'];
-        $this['viewPath'] = isset($config['viewPath']) ? $config['viewPath'] : $this['dir'] .
-                 DIRECTORY_SEPARATOR . 'views';
+        foreach ($config as $key => $value)
+            if ('Path' == substr($key, - 4))
+                $this[$key] = $value;
+        
+        if (null === $this['basePath'])
+            throw new \LogicException('basePath must be set in application config');
+        
+        foreach (array(
+            'view',
+            'controller',
+            'model',
+            'component'
+        ) as $key)
+            if (null === $this[$key . 'Path'])
+                $this[$key . 'Path'] = $this['basePath'] . DIRECTORY_SEPARATOR . $key . 's';
+    }
+
+    /**
+     * If you dont use composer, set config composer false, this method will work
+     *
+     * @return void
+     */
+    public function registerIncludePath()
+    {
+        $includePath = '';
+        foreach (static::$bindings as $key => $value)
+            if ('Path' == substr($key, - 4))
+                $includePath .= PATH_SEPARATOR . $value;
+        set_include_path(get_include_path() . $includePath);
     }
 
     /**
@@ -83,19 +131,17 @@ class Application extends Component
      *
      * @return void
      */
-    public function initExceptionHandler ()
+    public function initExceptionHandler()
     {
         if (null !== $this['exceptionHandler']) {
-            set_exception_handler(
-                    array(
-                            $this['exceptionHandler'],
-                            'handleException'
-                    ));
-            set_error_handler(
-                    array(
-                            $this['exceptionHandler'],
-                            'handleError'
-                    ), error_reporting());
+            set_exception_handler(array(
+                $this['exceptionHandler'],
+                'handleException'
+            ));
+            set_error_handler(array(
+                $this['exceptionHandler'],
+                'handleError'
+            ), error_reporting());
         }
     }
 
@@ -104,11 +150,15 @@ class Application extends Component
      *
      * @return void
      */
-    public function dispatch (RouterInterface $router, RequestInterface $request)
+    public function dispatch(RouterInterface $router, RequestInterface $request)
     {
         list ($action, $params) = $router->dispatch($request);
         
-        $response = $this->runAction($action, (array) $params, true);
+        if ($action instanceof Closure) {
+            $response = Component::anonymousInvoke($action, $params);
+        } elseif (is_string($action) && strpos($action, '@')) {
+            $response = Component::atInvoke($action, $params);
+        }
         
         if ($response)
             $this->response->setContent($response);
@@ -121,7 +171,7 @@ class Application extends Component
      *
      * @return void
      */
-    public function startRun (Closure $callback = null, $priority = 1)
+    public function startRun(Closure $callback = null, $priority = 1)
     {
         if (null !== $callback) {
             if (null === $this->startCallbackQueue)
@@ -137,7 +187,7 @@ class Application extends Component
      *
      * @return void
      */
-    public function run (RouterInterface $router = null, RequestInterface $request = null)
+    public function run(RouterInterface $router = null, RequestInterface $request = null)
     {
         if (empty($router))
             $router = $this->router;
@@ -152,10 +202,10 @@ class Application extends Component
     /**
      * Register a "shutdown" callback.
      *
-     * @param Closure $callback
+     * @param Closure $callback            
      * @return void
      */
-    public function finishRun (Closure $callback = null, $priority = 1)
+    public function finishRun(Closure $callback = null, $priority = 1)
     {
         if (null !== $callback) {
             if (null === $this->finishCallbackQueue)
@@ -171,7 +221,7 @@ class Application extends Component
      *
      * @return bool
      */
-    public function runningInConsole ()
+    public function runningInConsole()
     {
         return php_sapi_name() == 'cli';
     }

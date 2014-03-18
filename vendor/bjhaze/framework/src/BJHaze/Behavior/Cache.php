@@ -6,9 +6,9 @@
  */
 namespace BJHaze\Behavior;
 use ReflectionMethod, Closure;
-use BJHaze\Foundation\Component;
+use BJHaze\Foundation\Container;
 
-class Cache extends Component implements BehaviorInterface
+class Cache extends Container implements BehaviorInterface
 {
 
     /**
@@ -83,7 +83,6 @@ class Cache extends Component implements BehaviorInterface
                     'You can not use cache behavior without set cache key and live second');
         if (null == $this['cache']) // no cache component found
             return;
-        
         if (false !== ($data = $this->cache->getEngine($this->engine)->get($this->key))) {
             $action = null; // cache hit, end the behavior chain.
             $before = $after = array();

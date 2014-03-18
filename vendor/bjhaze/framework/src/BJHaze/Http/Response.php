@@ -6,13 +6,34 @@
  */
 namespace BJHaze\Http;
 
-class Response implements ResponseInterface
+class Response
 {
 
+    /**
+     * Response status code
+     *
+     * @var int
+     */
     protected $statusCode;
 
+    /**
+     *
+     * @var string
+     */
+    protected $charset;
+
+    /**
+     * Response headers
+     *
+     * @var array
+     */
     protected $headers;
 
+    /**
+     * Response content
+     *
+     * @var string
+     */
     protected $content;
 
     /**
@@ -27,99 +48,148 @@ class Response implements ResponseInterface
      * @var array
      */
     public static $statusTexts = array(
-            100 => 'Continue',
-            101 => 'Switching Protocols',
-            102 => 'Processing', // RFC2518
-            200 => 'OK',
-            201 => 'Created',
-            202 => 'Accepted',
-            203 => 'Non-Authoritative Information',
-            204 => 'No Content',
-            205 => 'Reset Content',
-            206 => 'Partial Content',
-            207 => 'Multi-Status', // RFC4918
-            208 => 'Already Reported', // RFC5842
-            226 => 'IM Used', // RFC3229
-            300 => 'Multiple Choices',
-            301 => 'Moved Permanently',
-            302 => 'Found',
-            303 => 'See Other',
-            304 => 'Not Modified',
-            305 => 'Use Proxy',
-            306 => 'Reserved',
-            307 => 'Temporary Redirect',
-            308 => 'Permanent Redirect', // RFC-reschke-http-status-308-07
-            400 => 'Bad Request',
-            401 => 'Unauthorized',
-            402 => 'Payment Required',
-            403 => 'Forbidden',
-            404 => 'Not Found',
-            405 => 'Method Not Allowed',
-            406 => 'Not Acceptable',
-            407 => 'Proxy Authentication Required',
-            408 => 'Request Timeout',
-            409 => 'Conflict',
-            410 => 'Gone',
-            411 => 'Length Required',
-            412 => 'Precondition Failed',
-            413 => 'Request Entity Too Large',
-            414 => 'Request-URI Too Long',
-            415 => 'Unsupported Media Type',
-            416 => 'Requested Range Not Satisfiable',
-            417 => 'Expectation Failed',
-            418 => 'I\'m a teapot', // RFC2324
-            422 => 'Unprocessable Entity', // RFC4918
-            423 => 'Locked', // RFC4918
-            424 => 'Failed Dependency', // RFC4918
-            425 => 'Reserved for WebDAV advanced collections expired proposal', // RFC2817
-            426 => 'Upgrade Required', // RFC2817
-            428 => 'Precondition Required', // RFC6585
-            429 => 'Too Many Requests', // RFC6585
-            431 => 'Request Header Fields Too Large', // RFC6585
-            500 => 'Internal Server Error',
-            501 => 'Not Implemented',
-            502 => 'Bad Gateway',
-            503 => 'Service Unavailable',
-            504 => 'Gateway Timeout',
-            505 => 'HTTP Version Not Supported',
-            506 => 'Variant Also Negotiates (Experimental)', // RFC2295
-            507 => 'Insufficient Storage', // RFC4918
-            508 => 'Loop Detected', // RFC5842
-            510 => 'Not Extended', // RFC2774
-            511 => 'Network Authentication Required' // RFC6585
+        100 => 'Continue',
+        101 => 'Switching Protocols',
+        102 => 'Processing', // RFC2518
+        200 => 'OK',
+        201 => 'Created',
+        202 => 'Accepted',
+        203 => 'Non-Authoritative Information',
+        204 => 'No Content',
+        205 => 'Reset Content',
+        206 => 'Partial Content',
+        207 => 'Multi-Status', // RFC4918
+        208 => 'Already Reported', // RFC5842
+        226 => 'IM Used', // RFC3229
+        300 => 'Multiple Choices',
+        301 => 'Moved Permanently',
+        302 => 'Found',
+        303 => 'See Other',
+        304 => 'Not Modified',
+        305 => 'Use Proxy',
+        306 => 'Reserved',
+        307 => 'Temporary Redirect',
+        308 => 'Permanent Redirect', // RFC-reschke-http-status-308-07
+        400 => 'Bad Request',
+        401 => 'Unauthorized',
+        402 => 'Payment Required',
+        403 => 'Forbidden',
+        404 => 'Not Found',
+        405 => 'Method Not Allowed',
+        406 => 'Not Acceptable',
+        407 => 'Proxy Authentication Required',
+        408 => 'Request Timeout',
+        409 => 'Conflict',
+        410 => 'Gone',
+        411 => 'Length Required',
+        412 => 'Precondition Failed',
+        413 => 'Request Entity Too Large',
+        414 => 'Request-URI Too Long',
+        415 => 'Unsupported Media Type',
+        416 => 'Requested Range Not Satisfiable',
+        417 => 'Expectation Failed',
+        418 => 'I\'m a teapot', // RFC2324
+        422 => 'Unprocessable Entity', // RFC4918
+        423 => 'Locked', // RFC4918
+        424 => 'Failed Dependency', // RFC4918
+        425 => 'Reserved for WebDAV advanced collections expired proposal', // RFC2817
+        426 => 'Upgrade Required', // RFC2817
+        428 => 'Precondition Required', // RFC6585
+        429 => 'Too Many Requests', // RFC6585
+        431 => 'Request Header Fields Too Large', // RFC6585
+        500 => 'Internal Server Error',
+        501 => 'Not Implemented',
+        502 => 'Bad Gateway',
+        503 => 'Service Unavailable',
+        504 => 'Gateway Timeout',
+        505 => 'HTTP Version Not Supported',
+        506 => 'Variant Also Negotiates (Experimental)', // RFC2295
+        507 => 'Insufficient Storage', // RFC4918
+        508 => 'Loop Detected', // RFC5842
+        510 => 'Not Extended', // RFC2774
+        511 => 'Network Authentication Required' // RFC6585
         );
+
+    /**
+     * Constructor
+     *
+     * @param string $charset            
+     */
+    public function __construct($charset = 'utf8')
+    {
+        $this->charset = $charset;
+        $this->setHeader('Content-Type', 'charset=' . $charset);
+    }
+
+    /**
+     * Get the response charset
+     *
+     * @return string
+     */
+    public function getCharset()
+    {
+        return $this->charset;
+    }
 
     /**
      * Set the http header
      *
-     * @param string $header
+     * @param string $header            
      * @return void
      */
-    public function setHeader ($key, $values, $replace = true)
+    public function setHeader($key, $values, $replace = false)
     {
-        if (true === $replace || ! isset($this->headers[$key])) {
+        if (true === $replace || ! isset($this->headers[$key]))
             $this->headers[$key] = $values;
-        } else {
-            $this->headers[$key] = array_merge($this->headers[$key], $values);
+        else {
+            if (! is_array($this->headers[$key]))
+                $this->headers[$key] = array(
+                    $this->headers[$key]
+                );
+            if (! in_array($values, $this->headers[$key]))
+                array_unshift($this->headers[$key], $values);
         }
+    }
+
+    /**
+     * Set response http status
+     *
+     * @param int $status            
+     * @return void
+     */
+    public function setStatus($statusCode)
+    {
+        $this->statusCode = $statusCode;
     }
 
     /**
      * Set The response content
      *
+     * @param string $content            
      * @return void
      */
-    public function setContent ($content)
+    public function setContent($content)
     {
         $this->content = $content;
     }
 
     /**
-     * Get The response content
+     * Append content
      *
+     * @param string $content            
      * @return void
      */
-    public function getContent ()
+    public function appendContent($content)
+    {
+        $this->content .= $content;
+    }
+
+    /**
+     * Get The response content
+     *
+     * @return string
+     */
+    public function getContent()
     {
         return $this->content;
     }
@@ -129,14 +199,14 @@ class Response implements ResponseInterface
      *
      * @return void
      */
-    public function sendHeaders ()
+    public function sendHeaders()
     {
         if (headers_sent())
             return;
         http_response_code($this->statusCode);
-        foreach ((array) $this->headers as $name => $value) {
-            header($name . ': ' . $value, false);
-        }
+        
+        foreach ((array) $this->headers as $name => $value)
+            header($name . ': ' . (is_array($value) ? implode('; ', $value) : $value), false);
     }
 
     /**
@@ -144,7 +214,7 @@ class Response implements ResponseInterface
      *
      * @return void
      */
-    public function sendContent ()
+    public function sendContent()
     {
         echo $this->content;
     }
@@ -154,15 +224,14 @@ class Response implements ResponseInterface
      *
      * @return void
      */
-    public function send ()
+    public function send()
     {
         $this->sendHeaders();
         $this->sendContent();
         
-        if (function_exists('fastcgi_finish_request')) {
+        if (function_exists('fastcgi_finish_request'))
             fastcgi_finish_request();
-        } elseif ('cli' !== PHP_SAPI && ob_get_level() > 0) {
+        elseif ('cli' !== PHP_SAPI && ob_get_level() > 0)
             flush();
-        }
     }
 }

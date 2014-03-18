@@ -5,7 +5,7 @@
  * @author zhifeng <a_3722@hotmail.com>
  */
 namespace BJHaze\Routing;
-use ReflectionMethod;
+
 use BJHaze\Foundation\Component;
 
 class Controller extends Component
@@ -26,65 +26,80 @@ class Controller extends Component
     protected $layout;
 
     /**
+     * The cache engine used.
+     *
+     * @var string
+     */
+    protected $cacheEngine;
+
+    /**
+     * Cache actions and their cache time(second)
+     *
+     * @var int
+     */
+    protected $cacheActions = array();
+
+    /**
      * Get the default action
      *
      * @return string
      */
-    public function getDefaultAction ()
+    public function getDefaultAction()
     {
         return 'index';
     }
 
-    /**
-     * Runs the named action.
-     *
-     * @param string $actionID action ID
-     * @param mixed $return wether
-     * @throws Exception if the action does not exist or the action name is not
-     *         proper.
-     */
-    public function dispatch ($actionID, array $parameters = array(), $fixParam = false)
+    public function runActionWithBehavior($actionID, array $parameters = array(), $fixParam = false)
     {
         if ('' == ($actionID = trim($actionID, '/')))
             $actionID = $this->getDefaultAction();
-        
-        $action = 'action' . $actionID;
-        if (method_exists($this, $action)) {
-            if ($fixParam) {
-                $action = new \ReflectionMethod($this, $action);
-                $parameters = $this->fixParameters($action, $parameters);
-            }
-            
-            $before = $this->getBeforeBehaviors($actionID, $parameters);
-            $after = $this->getAfterBehaviors($actionID, $parameters);
-            
-            return $this->runActionWithBehavior($action, 
-                    array_merge($this->getActionParams(), $parameters), $before, $after);
+        if (method_exists($this, 'action' . $actionID)) {
+            return parent::runActionWithBehavior($actionID, array_merge($this->getActionParams(), $parameters), $fixParam);
         } else
             return $this->missingAction($actionID);
+    }
+
+    public function runAction($actionID, array $parameters = array(), $fixParam = false)
+    {
+        if (is_string($actionID))
+            $action = 'action' . $actionID;
+        return parent::runAction($action, $parameters, $fixParam);
+    }
+
+    public function getBeforeBehaviors($action, array $parameters = null)
+    {
+        $before = array();
+        if (isset($this->cacheActions[$action])) {
+            $this->cacheProvider->setEngine($this->cacheEngine);
+            $this->cacheProvider->setKey($action . ($parameters ? serialize($parameters) : ''));
+            $this->cacheProvider->setSecond($this->cacheActions[$action]);
+            $before[] = $this->cacheProvider;
+        }
+        
+        return $before;
+    }
+
+    public function getAfterBehaviors($action, array $parameters = null)
+    {
+        return array();
     }
 
     /**
      * Render a widget
      *
-     * @param mixed $action
-     * @param array $parameters
-     * @param int $second
-     * @param string $key
+     * @param mixed $action            
+     * @param array $parameters            
      */
-    protected function widget ($action, array $parameters = null, $second = null, $key = null)
+    protected function widget($action, array $parameters = array())
     {
-        if (null !== $second) {
-            $this->cacheProvider->setEngine($this->cacheEngine);
-            $this->cacheProvider->setSecond($second);
-            $this->cacheProvider->setKey(
-                    $key ?  : $action . ($parameters ? serialize($parameters) : ''));
-            echo $this->runActionWithBehavior($action, $parameters, 
-                    array(
-                            $this->cacheProvider
-                    ), null, ! isset($parameters[0]));
-        } else
-            echo $this->runAction($action, $parameters, ! isset($parameters[0]));
+        $temp = $this->layout;
+        $this->layout = null;
+        if (strpos($action, '@'))
+            self::atInvoke($action, $parameters);
+        else
+            parent::runActionWithBehavior($action, $parameters);
+        $this->layout = $temp;
+        $this->response->sendContent();
     }
 
     /**
@@ -93,7 +108,7 @@ class Controller extends Component
      *
      * @return array
      */
-    protected function getActionParams ()
+    protected function getActionParams()
     {
         return $this->request->getParams();
     }
@@ -101,94 +116,102 @@ class Controller extends Component
     /**
      * Processes the request using another action.
      *
-     * @param string $path the new route.
+     * @param string $path
+     *            the new route.
      */
-    protected function forward ($path)
+    protected function forward($path)
     {
         list ($action, $params) = $this->router->forward($path);
         
-        return $this->runAction($action, $params);
+        return $this->runActionWithBehavior($action, $params);
     }
 
     /**
      * Handles the request whose action is not recognized.
      *
-     * @param string $actionID
+     * @param string $actionID            
      * @throws BadMethodCallException
      */
-    protected function missingAction ($actionID)
+    protected function missingAction($actionID)
     {
-        throw new \BadMethodCallException(
-                sprintf('The system is unable to find the action "%s".', $actionID), 404);
+        throw new \BadMethodCallException(sprintf('The system is unable to find the action "%s".', $actionID), 404);
     }
 
     /**
      * This method is invoked at the beginning of {@link render()}.
      *
-     * @param string $view
-     * @param array $data
+     * @param string $view            
+     * @param array $data            
      */
-    protected function beforeRender ($view, array &$data = null)
+    protected function beforeRender($view, array &$data = null)
     {}
 
     /**
      * This method is invoked after the specified view is rendered by calling
      * {@link render()}.
      */
-    protected function afterRender ()
+    protected function afterRender()
     {}
 
     /**
      * Renders JOSN data.
      *
-     * @param array $data
+     * @param array $data            
      */
-    protected function renderJSON (array $data)
+    protected function renderJSON(array $data)
     {
         $this->response->setHeader('Content-Type', 'application/json');
-        $this->response->setContent(json_encode($data));
+        if ($this->response->getCharset() != 'utf8')
+            array_walk_recursive($data, function (&$item, $key)
+            {
+                $item = mb_convert_encoding($item, 'utf8', $this->response->getCharset());
+            });
+        
+        $this->response->setContent(mb_convert_encoding(json_encode($data), $this->response->getCharset(), 'utf8'));
     }
 
     /**
      * Renders XML data.
      *
-     * @param array $data
+     * @param array $data            
      */
-    protected function renderXML ($data)
+    protected function renderXML($data)
     {
-        $this->response->setHeader('Content-Type', 'text/xml;charset=utf-8');
+        $this->response->setHeader('Content-Type', 'text/xml');
         $this->response->setContent(is_array($data) ? $this->writeXML($data) : $data);
     }
 
     /**
      * Renders a view with a layout.
      *
-     * @param string $view name of the view to be rendered.
-     * @param array $data data to be extracted
+     * @param string $view            
+     * @param array $data            
      * @return void
      */
-    protected function render ($view, array $data = null)
+    protected function render($view, array $data = null)
     {
         $this->beforeRender($view, $data);
-        $this->response->setHeader('Content-Type', 'text/html;charset=utf-8');
-        ob_start();
-        $data['viewFile'] = $viewFile = $this->getViewFile($view);
+        $data['mainFile'] = $viewFile = $this->getViewFile($view);
         extract($data);
+        $this->response->setHeader('Content-Type', 'text/html');
+        ob_start();
         if (($layoutFile = $this->getLayoutFile()) != null)
             include $layoutFile;
         else
             include $viewFile;
-        $this->response->setContent(ob_get_clean());
+        $content = ob_get_clean();
+        // ob_end_clean();
+        $this->response->setContent($content);
         $this->afterRender();
     }
 
     /**
      * XML writer
      *
-     * @param array $data
-     * @param \XMLWriter $writer
+     * @param array $data            
+     * @param \XMLWriter $writer            
      */
-    protected function writeXML (array $data, \XMLWriter $writer = null)
+    protected function writeXML(array $data,\XMLWriter $writer = null)
     {
         if (null == $writer) {
             $writer = new \XMLWriter();
@@ -213,10 +236,10 @@ class Controller extends Component
     /**
      * Looks for the view file according to the given view name.
      *
-     * @param string $viewName
+     * @param string $viewName            
      * @return string
      */
-    protected function getViewFile ($viewName)
+    protected function getViewFile($viewName)
     {
         if ($viewName[0] === '/')
             return $this['viewPath'] . DIRECTORY_SEPARATOR . $viewName . '.php';
@@ -229,7 +252,7 @@ class Controller extends Component
      *
      * @return string
      */
-    protected function getViewPath ()
+    protected function getViewPath()
     {
         return $this['viewPath'] . DIRECTORY_SEPARATOR . $this->getId();
     }
@@ -239,11 +262,10 @@ class Controller extends Component
      *
      * @return string
      */
-    protected function getId ()
+    protected function getId()
     {
         if (empty($this->id)) {
-            $id = true == ($pos = strrpos(get_class($this), '\\')) ? substr(get_class($this), 
-                    $pos + 1) : get_class($this);
+            $id = true == ($pos = strrpos(get_class($this), '\\')) ? substr(get_class($this), $pos + 1) : get_class($this);
             $this->id = str_replace('controller', '', strtolower($id));
         }
         
@@ -256,7 +278,7 @@ class Controller extends Component
      * @return string the view file for the layout. null if the view file
      *         cannot be found
      */
-    protected function getLayoutFile ()
+    protected function getLayoutFile()
     {
         if (null !== $this->layout)
             return $this['viewPath'] . DIRECTORY_SEPARATOR . $this->layout . '.php';
@@ -265,11 +287,11 @@ class Controller extends Component
     /**
      * Creates a relative URL.
      *
-     * @param string $route
-     * @param array $params
+     * @param string $route            
+     * @param array $params            
      * @return string
      */
-    protected function createUrl ($route, array $params = array())
+    protected function createUrl($route, array $params = array())
     {
         $url = $this->router->buildUrl($route, $params);
         if (strpos($url, 'http') === 0)
@@ -281,11 +303,11 @@ class Controller extends Component
     /**
      * Creates an absolute URL.
      *
-     * @param string $route
-     * @param array $params
+     * @param string $route            
+     * @param array $params            
      * @return string
      */
-    protected function createAbsoluteUrl ($route, $params = array())
+    protected function createAbsoluteUrl($route, $params = array())
     {
         $url = $this->router->buildUrl($route, $params);
         if (strpos($url, 'http') === 0)
@@ -297,11 +319,14 @@ class Controller extends Component
     /**
      * Redirects the browser to the specified URL.
      *
-     * @param string $url the URL to be redirected to.
-     * @param boolean $terminate whether to terminate the current application.
-     * @param integer $statusCode the HTTP status code.
+     * @param string $url
+     *            the URL to be redirected to.
+     * @param boolean $terminate
+     *            whether to terminate the current application.
+     * @param integer $statusCode
+     *            the HTTP status code.
      */
-    protected function redirect ($url, $terminate = true, $statusCode = 302)
+    public function redirect($url, $terminate = true, $statusCode = 302)
     {
         $this->request->redirect($url, $terminate, $statusCode);
     }

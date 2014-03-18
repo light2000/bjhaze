@@ -5,37 +5,45 @@
  * @author zhifeng <a_3722@hotmail.com>
  */
 namespace BJHaze\Database;
+
 use SplPriorityQueue;
 
 class Commander
 {
 
-    const MSSQL_LIMIT_PRIOPOTY = 9;
+    const MSSQL_LIMIT_PRIOPOTY = 90000;
 
-    const INSERT_VALUES_PRIOROTY = 8;
+    const INSERT_VALUES_PRIOROTY = 80000;
 
-    const JOIN_PRIOROTY = 7;
+    const JOIN_PRIOROTY = 70000;
 
-    const UPDATE_VALUES_PRIORITY = 6;
+    const UPDATE_VALUES_PRIORITY = 60000;
 
-    const AFTER_FROM_JOIN_PRIOROTY = 5;
+    const AFTER_FROM_JOIN_PRIOROTY = 50000;
 
-    const WHERE_PRIOPOTY = 4;
+    const WHERE_PRIOPOTY = 40000;
 
-    const HAVING_PRIOPOTY = 3;
+    const HAVING_PRIOPOTY = 30000;
 
-    const LIMIT_PRIOPOTY = 2;
+    const LIMIT_PRIOPOTY = 20000;
 
-    const OFFSET_PRIOPOTY = 1;
+    const OFFSET_PRIOPOTY = 10000;
 
     const MSSQL_OFFSET_PRIOPOTY = 0;
 
     /**
      * Sql parameters bound
      *
-     * @var array
+     * @var SplPriorityQueue
      */
     protected $params;
+
+    /**
+     * Sql parameters number
+     *
+     * @var int
+     */
+    protected $paramSize;
 
     /**
      * Sql statement
@@ -54,7 +62,7 @@ class Commander
     /**
      * Initialize SQL statement and parameters.
      */
-    public function __construct ()
+    public function __construct()
     {
         $this->params = new SplPriorityQueue();
     }
@@ -62,26 +70,48 @@ class Commander
     /**
      * Bind the parameters to the SQL statement
      *
-     * @param mixed $value
-     * @param int $priority
+     * @param mixed $value            
+     * @param int $priority            
      * @return void
      */
-    protected function bindParam ($value, $priority)
+    protected function bindParam($value, $priority)
     {
+        if ($this->paramSize >= 10000)
+            throw new \OutOfRangeException('sql parameters bound overload');
         if (is_array($value))
             foreach ($value as $val)
-                $this->bindParam($val, $priority);
+                $this->params->insert($val, $priority - ($this->paramSize ++));
         else
-            $this->params->insert($value, $priority);
+            $this->params->insert($value, $priority - ($this->paramSize ++));
+    }
+
+    /**
+     * Get current params
+     *
+     * @return SplPriorityQueue
+     */
+    public function getParams()
+    {
+        return $this->params;
+    }
+
+    /**
+     * Get current frequency
+     *
+     * @return int
+     */
+    public function getFrequency()
+    {
+        return $this->frequency;
     }
 
     /**
      * Sets the SELECT part of the query.
      *
-     * @param array $columns
+     * @param array $columns            
      * @return void
      */
-    public function select ($columns = null)
+    public function select($columns = null)
     {
         if (null === $columns)
             $this->query['select'] = '*';
@@ -94,10 +124,10 @@ class Commander
     /**
      * Sets the SELECT part of the query with the DISTINCT flag turned on.
      *
-     * @param mixed $columns
+     * @param mixed $columns            
      * @return void
      */
-    public function selectDistinct ($columns = null)
+    public function selectDistinct($columns = null)
     {
         $this->query['distinct'] = true;
         $this->select($columns);
@@ -106,10 +136,10 @@ class Commander
     /**
      * Sets the FROM part of the query.
      *
-     * @param mixed $tables
+     * @param mixed $tables            
      * @return void
      */
-    public function from ($tables)
+    public function from($tables)
     {
         if (is_array($tables))
             $this->query['from'] = implode(', ', $tables);
@@ -120,24 +150,73 @@ class Commander
     /**
      * Build SELECT part
      *
-     * @param array $query
+     * @param array $query            
      * @throws \LogicException
      * @return string
      */
-    protected function buildSelect ()
+    protected function buildSelect(array $query)
     {
-        $sql = ! empty($this->query['distinct']) ? 'SELECT DISTINCT ' : 'SELECT ';
-        $sql .= $this->query['select'];
-        if (! empty($this->query['from']))
-            $sql .= ' FROM ' . $this->query['from'];
+        $sql = ! empty($query['distinct']) ? 'SELECT DISTINCT ' : 'SELECT ';
+        $sql .= $query['select'];
+        if (! empty($query['from']))
+            $sql .= ' FROM ' . $query['from'];
         else
             throw new \LogicException('Select query must contain the "from" portion.');
-        $sql .= (string) $this->buildJoin();
-        $sql .= (string) $this->buildWhere();
-        $sql .= (string) $this->buildGroup();
-        $sql .= (string) $this->buildOrder();
-        $sql .= (string) $this->buildLimit();
-        $sql .= (string) $this->buildOffset();
+        $sql .= (string) $this->buildJoin($query);
+        $sql .= (string) $this->buildWhere($query);
+        $sql .= (string) $this->buildGroup($query);
+        $sql .= (string) $this->buildOrder($query);
+        $sql .= (string) $this->buildLimit($query);
+        $sql .= (string) $this->buildOffset($query);
+        
+        return $sql;
+    }
+
+    /**
+     * Build Access SELECT part
+     *
+     * @param array $query            
+     * @throws \LogicException
+     * @return string
+     */
+    protected function buildOdbcSelect(array $query)
+    {
+        $sql = ! empty($query['distinct']) ? 'SELECT DISTINCT ' : 'SELECT ';
+        
+        if (! empty($query['limit']) && empty($query['offset'])) {
+            $sql .= "TOP {$query['limit']} ";
+        }
+        
+        if (! empty($query['offset'])) {
+            if (! isset($query['order']) || ! isset($query['limit']))
+                throw new \Exception('Access limit with offset SQL must have "order by" part and "limit" part');
+            else {
+                $reverseOrders = array();
+                $orders = explode(',', $query['order']);
+                foreach ($orders as $order)
+                    $reverseOrders[] = strpos($order, 'DESC') ? str_replace('DESC', 'ASC', $order) : str_replace(' ASC', '', $order) . ' DESC';
+                $reverseOrder = implode(', ', $reverseOrders);
+                $sql .= ' TOP ' . ($query['offset'] + $query['limit']) . ' ';
+            }
+        }
+        
+        $sql .= $query['select'];
+        if (! empty($query['from']))
+            $sql .= ' FROM ' . $query['from'];
+        else
+            throw new \LogicException('Select query must contain the "from" portion.');
+        
+        $sql .= $this->buildJoin($query);
+        $sql .= $this->buildWhere($query);
+        $sql .= $this->buildGroup($query);
+        
+        if (! empty($query['offset'])) {
+            $sql = "SELECT * FROM 
+                        (SELECT TOP {$query['limit']} * FROM 
+                            ({$sql}) 
+                        ORDER BY {$reverseOrder})";
+        }
+        $sql .= $this->buildOrder($query);
         
         return $sql;
     }
@@ -145,39 +224,38 @@ class Commander
     /**
      * Build Mssql SELECT part
      *
-     * @param array $query
+     * @param array $query            
      * @throws \LogicException
      * @return string
      */
-    protected function buildMssqlSelect ()
+    protected function buildMssqlSelect(array $query)
     {
-        $sql = ! empty($this->query['distinct']) ? 'SELECT DISTINCT ' : 'SELECT ';
+        $sql = ! empty($query['distinct']) ? 'SELECT DISTINCT ' : 'SELECT ';
         
-        if (! empty($this->query['limit']) && empty($this->query['offset'])) {
-            $sql .= 'TOP ? ';
-            $this->bindParam($this->query['limit'], self::MSSQL_LIMIT_PRIOPOTY);
+        if (! empty($query['limit']) && empty($query['offset'])) {
+            $sql .= "TOP {$query['limit']} ";
         }
         
-        if (! empty($this->query['offset'])) {
-            if (! isset($this->query['order']))
-                $this->query['order'] = '(select 0)';
-            $this->query['select'] .= ", row_number() over (order by {$this->query['order']}) as row_num";
+        if (! empty($query['offset'])) {
+            if (! isset($query['order']))
+                $query['order'] = '(select 0)';
+            $query['select'] .= ", row_number() over (order by {$query['order']}) as row_num";
         }
         
-        $sql .= $this->query['select'];
-        if (! empty($this->query['from']))
-            $sql .= ' FROM ' . $this->query['from'];
+        $sql .= $query['select'];
+        if (! empty($query['from']))
+            $sql .= ' FROM ' . $query['from'];
         else
             throw new \LogicException('Select query must contain the "from" portion.');
         
-        $sql .= $this->buildJoin();
-        $sql .= $this->buildWhere();
-        $sql .= $this->buildGroup();
+        $sql .= $this->buildJoin($query);
+        $sql .= $this->buildWhere($query);
+        $sql .= $this->buildGroup($query);
         
-        if (! empty($this->query['offset'])) {
-            $start = $this->query['offset'] + 1;
-            if ($this->query['limit'] > 0) {
-                $finish = $this->query['offset'] + $this->query['limit'];
+        if (! empty($query['offset'])) {
+            $start = $query['offset'] + 1;
+            if ($query['limit'] > 0) {
+                $finish = $query['offset'] + $query['limit'];
                 $constraint = "between ? and ?";
                 $this->bindParam($start, self::MSSQL_OFFSET_PRIOPOTY);
                 $this->bindParam($finish, self::MSSQL_OFFSET_PRIOPOTY);
@@ -187,7 +265,7 @@ class Commander
             }
             $sql = "SELECT * from ({$sql}) as temp_table where row_num {$constraint}";
         } else {
-            $sql .= $this->buildOrder();
+            $sql .= $this->buildOrder($query);
         }
         
         return $sql;
@@ -196,11 +274,11 @@ class Commander
     /**
      * Sets the WHERE part of the query.
      *
-     * @param mixed $condition
-     * @param mixed $params
+     * @param mixed $condition            
+     * @param mixed $params            
      * @return void
      */
-    public function where ($condition, $params = null)
+    public function where($condition, $params = null)
     {
         if (is_array($condition)) {
             $mergeCondition = array();
@@ -226,11 +304,11 @@ class Commander
      * Appends given condition to the existing WHERE part of the query with 'OR'
      * operator.
      *
-     * @param string $condition
-     * @param array $params
+     * @param string $condition            
+     * @param array $params            
      * @return void
      */
-    public function orWhere ($condition, array $params = null)
+    public function orWhere($condition, array $params = null)
     {
         if (empty($this->query['where'])) {
             throw new \LogicException('or where can not put at the beginning the condition part');
@@ -244,11 +322,11 @@ class Commander
     /**
      * Set conditions parameters
      *
-     * @param string $condition
-     * @param array $params
+     * @param string $condition            
+     * @param array $params            
      * @return void
      */
-    protected function fillInCondition (&$condition, array $params, $priority)
+    protected function fillInCondition(&$condition, array $params, $priority)
     {
         foreach ($params as $param)
             if (is_array($param)) {
@@ -256,8 +334,7 @@ class Commander
                     $placeholder .= ', ?';
                     $this->params->insert($param[$i], $priority);
                 }
-                $condition = preg_replace('/IN \(?\?(\)|^,)?/is', 
-                        'IN ( ' . substr($placeholder, 1) . ' ) ', $condition, 1);
+                $condition = preg_replace('/IN \(?\?(\)|^,)?/is', 'IN ( ' . substr($placeholder, 1) . ' ) ', $condition, 1);
             } else
                 $this->params->insert($param, $priority);
     }
@@ -265,27 +342,30 @@ class Commander
     /**
      * Build WHERE part
      *
-     * @param array $query
+     * @param array $query            
      */
-    protected function buildWhere ()
+    protected function buildWhere(array $query)
     {
-        return ! empty($this->query['where']) ? ' WHERE ' . $this->query['where'] : '';
+        return ! empty($query['where']) ? ' WHERE ' . $query['where'] : '';
     }
 
     /**
      * Appends an JOIN part to the query.
      *
-     * @param string $table the table to be joined.
-     * @param string $conditions the join condition.
-     * @param array $params the parameters
-     * @param string $type the join type
+     * @param string $table
+     *            the table to be joined.
+     * @param string $conditions
+     *            the join condition.
+     * @param array $params
+     *            the parameters
+     * @param string $type
+     *            the join type
      * @return void
      */
-    public function join ($type, $table, $condition = '', array $params = null)
+    public function join($type, $table, $condition = '', array $params = null)
     {
         if (! empty($params))
-            $this->fillInCondition($condition, $params, 
-                    ! empty($this->query['from']) ? self::AFTER_FROM_JOIN_PRIOROTY : self::JOIN_PRIOROTY);
+            $this->fillInCondition($condition, $params, ! empty($this->query['from']) ? self::AFTER_FROM_JOIN_PRIOROTY : self::JOIN_PRIOROTY);
         
         if ($condition != '')
             $condition = ' ON ' . $condition;
@@ -296,20 +376,22 @@ class Commander
     /**
      * Build SQL statement JOIN part
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildJoin ()
+    protected function buildJoin(array $query)
     {
-        return ! empty($this->query['join']) ? "\n" .implode("\n", $this->query['join']) : '';
+        return ! empty($query['join']) ? "\n" . implode("\n", $query['join']) : '';
     }
 
     /**
      * Sets the GROUP BY part of the query.
      *
-     * @param mixed $columns the columns to be grouped by.
+     * @param mixed $columns
+     *            the columns to be grouped by.
      * @return void
      */
-    public function group ($columns)
+    public function group($columns)
     {
         if (is_string($columns))
             $this->query['group'] = $columns;
@@ -320,11 +402,11 @@ class Commander
     /**
      * Sets the HAVING part of the query.
      *
-     * @param string $condition
-     * @param array $params
+     * @param string $condition            
+     * @param array $params            
      * @return void
      */
-    public function having ($condition, $params = null)
+    public function having($condition, $params = null)
     {
         $this->fillInCondition($condition, (array) $params, self::HAVING_PRIOPOTY);
         $this->query['having'] = $condition;
@@ -333,15 +415,15 @@ class Commander
     /**
      * Build GROUP part
      *
-     * @param array $query
+     * @param array $query            
      * @return string
      */
-    protected function buildGroup ()
+    protected function buildGroup(array $query)
     {
-        if (! empty($this->query['group'])) {
-            $sql = ' GROUP BY ' . $this->query['group'];
-            if (! empty($this->query['having']))
-                $sql .= ' HAVING ' . $this->query['having'];
+        if (! empty($query['group'])) {
+            $sql = ' GROUP BY ' . $query['group'];
+            if (! empty($query['having']))
+                $sql .= ' HAVING ' . $query['having'];
             return $sql;
         }
     }
@@ -349,10 +431,10 @@ class Commander
     /**
      * Sets the ORDER BY part of the query.
      *
-     * @param mixed $columns
+     * @param mixed $columns            
      * @return void
      */
-    public function order ($columns)
+    public function order($columns)
     {
         if (is_array($columns))
             $this->query['order'] = implode(', ', $columns);
@@ -363,21 +445,22 @@ class Commander
     /**
      * Build SQL statement ORDER BY part
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildOrder ()
+    protected function buildOrder(array $query)
     {
-        return ! empty($this->query['order']) ? ' ORDER BY ' . $this->query['order'] : '';
+        return ! empty($query['order']) ? ' ORDER BY ' . $query['order'] : '';
     }
 
     /**
      * Sets the LIMIT part of the query.
      *
-     * @param int $limit the limit
-     * @param int $offset the offset
+     * @param int $limit            
+     * @param int $offset            
      * @return void
      */
-    public function limit ($limit, $offset = null)
+    public function limit($limit, $offset = null)
     {
         $this->query['limit'] = (int) $limit;
         if ($offset !== null)
@@ -387,10 +470,10 @@ class Commander
     /**
      * Sets the OFFSET part of the query.
      *
-     * @param int $offset the offset
+     * @param int $offset            
      * @return void
      */
-    public function offset ($offset)
+    public function offset($offset)
     {
         $this->query['offset'] = (int) $offset;
     }
@@ -398,10 +481,11 @@ class Commander
     /**
      * Appends a SQL statement using UNION operator.
      *
-     * @param string $sql the SQL statement to be appended using UNION
+     * @param string $sql
+     *            the SQL statement to be appended using UNION
      * @return void
      */
-    public function union ($sql)
+    public function union($sql)
     {
         $this->query['union'][] = $sql;
     }
@@ -409,11 +493,11 @@ class Commander
     /**
      * Creates an INSERT SQL statement.
      *
-     * @param string $table
-     * @param array $columns
+     * @param string $table            
+     * @param array $columns            
      * @return void
      */
-    public function insert ($table, array $columns = null)
+    public function insert($table, array $columns = null)
     {
         $this->query['insert'] = $table;
         if (! empty($columns)) {
@@ -429,22 +513,19 @@ class Commander
                 $this->query['insertColumns'] = array_keys($columns);
             
             $this->bindParam($columns, self::INSERT_VALUES_PRIOROTY);
-            
-            $this->query['insertValues'] = ' ( ' .
-                     substr(str_repeat(', ?', count($this->query['insertColumns'])), 1) . ' ) ';
-            $this->query['insertColumns'] = ' ( `' . implode('`,`', $this->query['insertColumns']) .
-                     '` ) ';
+            $this->query['insertValues'] = ' ( ' . substr(str_repeat(', ?', count($this->query['insertColumns'])), 1) . ' ) ';
+            $this->query['insertColumns'] = ' ( `' . implode('`,`', $this->query['insertColumns']) . '` ) ';
         }
     }
 
     /**
      * Creates an REPLACE INTO SQL statement.(Support MYSQL Only)
      *
-     * @param string $table
-     * @param array $columns
+     * @param string $table            
+     * @param array $columns            
      * @return void
      */
-    public function replace ($table, array $columns = null)
+    public function replace($table, array $columns = null)
     {
         $this->insert($table, $columns);
         $this->query['replace'] = true;
@@ -453,11 +534,11 @@ class Commander
     /**
      * Creates an INSERT IGNORE INTO SQL statement.(Support MYSQL Only)
      *
-     * @param string $table
-     * @param array $columns
+     * @param string $table            
+     * @param array $columns            
      * @return void
      */
-    public function ignoreInsert ($table, array $columns = null)
+    public function ignoreInsert($table, array $columns = null)
     {
         $this->insert($table, $columns);
         $this->query['ignore'] = true;
@@ -466,34 +547,35 @@ class Commander
     /**
      * Use "ON DUPLICATE KEY UPDATE" After a Insert operation.(Support MYSQL Only)
      *
-     * @param string $operation
+     * @param string $operation            
      * @throws Exception
      * @return void
      */
-    public function onDuplicateUpdate ($operation, $params)
+    public function onDuplicateUpdate($operation, $params)
     {
         $this->query['onDuplicateUpdate'] = array(
-                $operation,
-                $params
+            $operation,
+            $params
         );
     }
 
     /**
      * Build the insert SQL statement
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildInsert ()
+    protected function buildInsert(array $query)
     {
-        $this->frequency = ! empty($this->query['insertBatch']) ? $this->query['insertBatch'] : 1;
-        $sql = 'INSERT INTO ' . $this->query['insert'] . $this->query['insertColumns'];
-        if (empty($this->query['insertValues']))
-            if (! empty($this->query['select']))
-                $sql .= ' ' . $this->buildSelect();
+        $this->frequency = ! empty($query['insertBatch']) ? $query['insertBatch'] : 1;
+        $sql = 'INSERT INTO ' . $query['insert'] . $query['insertColumns'];
+        if (empty($query['insertValues']))
+            if (! empty($query['select']))
+                $sql .= ' ' . $this->buildSelect($query);
             else
                 throw new \LogicException('INSERT SQL is not complete');
         else
-            $sql .= ' VALUES ' . $this->query['insertValues'];
+            $sql .= ' VALUES ' . $query['insertValues'];
         
         return $sql;
     }
@@ -501,28 +583,28 @@ class Commander
     /**
      * Build the Mysql insert SQL statement
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildMysqlInsert ()
+    protected function buildMysqlInsert(array $query)
     {
-        $this->frequency = ! empty($this->query['insertBatch']) ? $this->query['insertBatch'] : 1;
+        $this->frequency = ! empty($query['insertBatch']) ? $query['insertBatch'] : 1;
         
-        $sql = ! empty($this->query['replace']) ? 'REPLACE INTO ' : (! empty($this->query['ignore']) ? 'INSERT IGNORE INTO ' : 'INSERT INTO ');
-        $sql .= $this->query['insert'] . $this->query['insertColumns'];
-        if (empty($this->query['insertValues']))
-            if (! empty($this->query['select']))
-                $sql .= ' ' . $this->buildSelect();
+        $sql = ! empty($query['replace']) ? 'REPLACE INTO ' : (! empty($query['ignore']) ? 'INSERT IGNORE INTO ' : 'INSERT INTO ');
+        $sql .= $query['insert'] . $query['insertColumns'];
+        if (empty($query['insertValues']))
+            if (! empty($query['select']))
+                $sql .= ' ' . $this->buildSelect($query);
             else
                 throw new \LogicException('INSERT SQL is not complete');
         elseif ($this->frequency > 1) {
-            $sql .= ' VALUES ' .
-                     substr(str_repeat(', ' . $this->query['insertValues'], $this->frequency), 1);
+            $sql .= ' VALUES ' . substr(str_repeat(', ' . $query['insertValues'], $this->frequency), 1);
             $this->frequency = 1; // mysql support patch insert
         } else
-            $sql .= ' VALUES ' . $this->query['insertValues'];
+            $sql .= ' VALUES ' . $query['insertValues'];
         
-        if (! empty($this->query['onDuplicateUpdate'])) {
-            list ($operation, $params) = $this->query['onDuplicateUpdate'];
+        if (! empty($query['onDuplicateUpdate'])) {
+            list ($operation, $params) = $query['onDuplicateUpdate'];
             $sql .= ' ON DUPLICATE KEY UPDATE ' . $operation;
             if (! empty($params))
                 $this->bindParam($params, self::UPDATE_VALUES_PRIORITY);
@@ -534,39 +616,37 @@ class Commander
     /**
      * Creates an UPDATE SQL statement.
      *
-     * @param string $table
-     * @param mixed $col
-     * @param mixed $value
+     * @param string $table            
+     * @param mixed $col            
+     * @param mixed $value            
      * @return void
      */
-    public function update ($table, $column = null, $value = null)
+    public function update($table, $column = null, $value = null)
     {
         $this->query['update'] = $table;
         $this->query['updateSets'] = array();
         if (is_array($column)) {
-            $this->query['updateSets'] = array_map(
-                    function  ($key)
-                    {
-                        return $key . ' = ?';
-                    }, array_keys($column));
+            $this->query['updateSets'] = array_map(function ($key)
+            {
+                return $key . ' = ?';
+            }, array_keys($column));
             $this->bindParam($column, self::UPDATE_VALUES_PRIORITY);
         } elseif (is_string($column)) {
             $this->query['updateSets'][] = $column;
             if (! empty($value))
-                $this->bindParam(func_num_args() > 3 ? array_slice(func_get_args(), 2) : $value, 
-                        self::UPDATE_VALUES_PRIORITY);
+                $this->bindParam(func_num_args() > 3 ? array_slice(func_get_args(), 2) : $value, self::UPDATE_VALUES_PRIORITY);
         }
     }
 
     /**
      * Self increment Update
      *
-     * @param string $key
-     * @param int $value
+     * @param string $key            
+     * @param int $value            
      * @throws LogicException
      * @return void
      */
-    public function increment ($key, $value = 1)
+    public function increment($key, $value = 1)
     {
         if (empty($this->query['update']))
             throw new \LogicException('Increment must after update operation');
@@ -577,12 +657,12 @@ class Commander
     /**
      * Self decrement Update
      *
-     * @param string $key
-     * @param int $value
+     * @param string $key            
+     * @param int $value            
      * @throws LogicException
      * @return void
      */
-    public function decrement ($key, $value = 1)
+    public function decrement($key, $value = 1)
     {
         if (empty($this->query['update']))
             throw new \LogicException('Decrement must after update operation');
@@ -593,29 +673,31 @@ class Commander
     /**
      * Build UPDATE SQL statement.
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildUpdate ()
+    protected function buildUpdate(array $query)
     {
-        $sql = 'UPDATE ' . $this->query['update'];
-        $sql .= ' SET ' . implode(', ', $this->query['updateSets']);
-        $sql .= $this->buildWhere();
+        $sql = 'UPDATE ' . $query['update'];
+        $sql .= ' SET ' . implode(', ', $query['updateSets']);
+        $sql .= $this->buildWhere($query);
         return $sql;
     }
 
     /**
      * Build Mysql UPDATE SQL statement.
      *
+     * @param array $query            
      * @return string
      */
-    protected function buildMysqlUpdate ()
+    protected function buildMysqlUpdate(array $query)
     {
-        $sql = 'UPDATE ' . $this->query['update'];
-        $sql .= $this->buildJoin();
-        $sql .= ' SET ' . implode(', ', $this->query['updateSets']);
-        $sql .= $this->buildWhere();
-        $sql .= $this->buildOrder();
-        $sql .= $this->buildLimit();
+        $sql = 'UPDATE ' . $query['update'];
+        $sql .= $this->buildJoin($query);
+        $sql .= ' SET ' . implode(', ', $query['updateSets']);
+        $sql .= $this->buildWhere($query);
+        $sql .= $this->buildOrder($query);
+        $sql .= $this->buildLimit($query);
         
         return $sql;
     }
@@ -623,10 +705,11 @@ class Commander
     /**
      * Creates a DELETE SQL statement.
      *
-     * @param string $table the table where the data will be deleted from.
+     * @param string $table
+     *            the table where the data will be deleted from.
      * @return void
      */
-    public function delete ($table)
+    public function delete($table)
     {
         $this->query['delete'] = $table;
     }
@@ -634,16 +717,16 @@ class Commander
     /**
      * Build DELETE SQL statement
      *
-     * @param array $query
+     * @param array $query            
      * @return string
      */
-    protected function buildDelete ()
+    protected function buildDelete(array $query)
     {
-        if (! empty($this->query['from']))
-            $sql = 'DELETE ' . $this->query['delete'] . ' FROM ' . $this->query['from'];
+        if (! empty($query['from']))
+            $sql = 'DELETE ' . $query['delete'] . ' FROM ' . $query['from'];
         else
-            $sql = 'DELETE FROM ' . $this->query['delete'];
-        $sql .= $this->buildWhere();
+            $sql = 'DELETE FROM ' . $query['delete'];
+        $sql .= $this->buildWhere($query);
         
         return $sql;
     }
@@ -651,18 +734,18 @@ class Commander
     /**
      * Build DELETE SQL statement
      *
-     * @param array $query
+     * @param array $query            
      * @return string
      */
-    protected function buildMysqlDelete ()
+    protected function buildMysqlDelete(array $query)
     {
-        if (! empty($this->query['from']))
-            $sql = 'DELETE ' . $this->query['delete'] . ' FROM ' . $this->query['from'];
+        if (! empty($query['from']))
+            $sql = 'DELETE ' . $query['delete'] . ' FROM ' . $query['from'];
         else
-            $sql = 'DELETE FROM ' . $this->query['delete'];
-        $sql .= $this->buildJoin();
-        $sql .= $this->buildWhere();
-        $sql .= $this->buildLimit();
+            $sql = 'DELETE FROM ' . $query['delete'];
+        $sql .= $this->buildJoin($query);
+        $sql .= $this->buildWhere($query);
+        $sql .= $this->buildLimit($query);
         
         return $sql;
     }
@@ -670,45 +753,42 @@ class Commander
     /**
      * Build SQL statement by query array
      *
-     * @param string $driver pdo driver
+     * @param string $driver            
      * @return string
      */
-    public function buildQuery ($driver)
+    public function buildQuery($driver, array $query = null)
     {
-        if (! empty($this->query['insert'])) {
+        if (empty($query))
+            $query = $this->query;
+        
+        if (! empty($query['insert'])) {
             $driverBuild = "build{$driver}Insert";
-            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild() : $this->buildInsert();
-        } elseif (! empty($this->query['select'])) {
+            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild($query) : $this->buildInsert($query);
+        } elseif (! empty($query['select'])) {
             $driverBuild = "build{$driver}Select";
-            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild() : $this->buildSelect();
-        } elseif (! empty($this->query['delete'])) {
+            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild($query) : $this->buildSelect($query);
+        } elseif (! empty($query['delete'])) {
             $driverBuild = "build{$driver}Delete";
-            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild() : $this->buildDelete();
-        } elseif (! empty($this->query['update'])) {
+            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild($query) : $this->buildDelete($query);
+        } elseif (! empty($query['update'])) {
             $driverBuild = "build{$driver}Update";
-            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild() : $this->buildUpdate();
+            $sql = method_exists($this, $driverBuild) ? $this->$driverBuild($query) : $this->buildUpdate($query);
         } else
             return null;
         
-        $this->clearSQLStatement();
-        
-        return array(
-                $sql,
-                $this->params,
-                $this->frequency
-        );
+        return $sql;
     }
 
     /**
      * Build limit part
      *
-     * @param array $query
+     * @param array $query            
      * @return string
      */
-    protected function buildLimit ()
+    protected function buildLimit(array $query)
     {
-        if (! empty($this->query['limit'])) {
-            $this->bindParam($this->query['limit'], self::LIMIT_PRIOPOTY);
+        if (! empty($query['limit'])) {
+            $this->bindParam($query['limit'], self::LIMIT_PRIOPOTY);
             return " LIMIT ?";
         }
         return '';
@@ -717,12 +797,13 @@ class Commander
     /**
      * Build offset part
      *
-     * @param array $conditions
+     * @param array $query            
+     * @return string
      */
-    protected function buildOffset ()
+    protected function buildOffset(array $query)
     {
-        if (! empty($this->query['offset'])) {
-            $this->bindParam($this->query['offset'], self::OFFSET_PRIOPOTY);
+        if (! empty($query['offset'])) {
+            $this->bindParam($query['offset'], self::OFFSET_PRIOPOTY);
             return " OFFSET ?";
         }
         return '';
@@ -733,8 +814,26 @@ class Commander
      *
      * @return void
      */
-    public function clearSQLStatement ()
+    public function clearSQLStatement()
     {
         $this->query = array();
+        $this->paramSize = 0;
+    }
+
+    /**
+     * Get COUNT sql
+     *
+     * @param string $driver            
+     * @return string
+     */
+    public function buildCountQuery($driver)
+    {
+        $countQuery = $this->query;
+        $countQuery['select'] = 'COUNT(*)';
+        $countQuery['order'] = null;
+        $countQuery['limit'] = null;
+        $countQuery['offset'] = null;
+        
+        return $this->buildQuery($driver, $countQuery);
     }
 }
