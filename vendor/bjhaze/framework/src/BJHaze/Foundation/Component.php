@@ -44,14 +44,6 @@ abstract class Component extends Container
      */
     abstract public function getAfterBehaviors($action, array $parameters = null);
 
-    public function __get($key)
-    {
-        if (! isset(static::$lateBindings[$key]))
-            $this->bind($key, ucfirst($key));
-        
-        return parent::__get($key);
-    }
-
     /**
      * Run action
      *

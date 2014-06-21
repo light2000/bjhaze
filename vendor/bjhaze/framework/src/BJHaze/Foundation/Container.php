@@ -9,7 +9,7 @@ namespace BJHaze\Foundation;
 
 use ArrayAccess, ReflectionClass, ReflectionFunctionAbstract;
 
-class Container implements ArrayAccess
+abstract class Container implements ArrayAccess
 {
 
     /**
@@ -27,19 +27,14 @@ class Container implements ArrayAccess
     protected static $lateBindings = array();
 
     /**
-     * Add late binding items
-     *
-     * @param string $key            
-     * @param mixed $value            
-     * @return void
+     * bind self
      */
-    public function bind($key, $value)
+    public function __construct()
     {
-        if (is_string($value))
-            $value = array(
-                'class' => $value
-            );
-        static::$lateBindings[$key] = $value;
+        $itemKey = strtolower(get_called_class());
+        
+        if (! isset(static::$bindings[$itemKey]))
+            static::$bindings[$itemKey] = $this;
     }
 
     /**
@@ -64,10 +59,10 @@ class Container implements ArrayAccess
      */
     public static function build(array $class)
     {
-        if (! isset($class['class']))
+        if (! isset($class['class']) or ! is_string($class['class']))
             throw new \LogicException('Item config array must have a "class" key');
         
-        $className = (string) $class['class'];
+        $className = $class['class'];
         
         if (! class_exists($className, true))
             throw new \RuntimeException(sprintf('Class %s not found', $class), 404);

@@ -91,7 +91,7 @@ class Cache extends Container implements BehaviorInterface
             $after[] = function  (&$action, array &$parameters, array &$before, array &$after, 
                     &$result)
             {
-                $this->app->finishRun(
+                $this['bjhaze\foundation\application']->finishRun(
                         function  () use( $result)
                         {
                             if (null === $result)

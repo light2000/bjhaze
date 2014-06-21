@@ -22,13 +22,13 @@
 				draggable:false
 			});
 			$('#login_form').form({
-				url:'<?php echo $this->baseUrl;?>/admin/login',
+				url:'<?php echo $this->baseUrl;?>/admin/home/login',
                 success:function(data){
                     var data = eval('(' + data + ')');
                     if (!data.success)
                         $.messager.alert('Sorry', data.message, 'error');
                     else
-                        document.location.href = '<?php echo $this->baseUrl;?>/admin/';
+                        document.location.href = '<?php echo $this->baseUrl;?>/admin/home/';
                 }
             });
 		});

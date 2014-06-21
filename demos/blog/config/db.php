@@ -4,8 +4,8 @@ return array(
     'connections' => array(
         'access' => array(
             'masters' => array(
-                //"odbc:driver={microsoft access driver (*.mdb)};dbq=" . dirname(__DIR__) . "/data/blog.mdb"
-                "mysql:host=192.168.189.139;dbname=blog;charset=gbk"
+                "odbc:driver={microsoft access driver (*.mdb)};dbq=" . dirname(__DIR__) . "/data/blog.mdb"
+                //"mysql:host=192.168.189.139;dbname=blog;charset=gbk"
             ),
             'username' => 'root',
             'password' => '',

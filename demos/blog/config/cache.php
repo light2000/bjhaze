@@ -15,6 +15,16 @@ return array(
                 'pconnect' => false,
                 'auth' => null
             )
+        ),
+        'memcache' => array(
+            'driver' => 'memcache',
+            'servers' => array(
+                array(
+                    'host' => 'localhost',
+                    'port' => 11211
+                )
+            )
         )
     )
+    
 );

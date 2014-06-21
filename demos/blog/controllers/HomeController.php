@@ -1,26 +1,25 @@
 <?php
 use BJHaze\Routing\Controller;
 
-/**
- *
- * @property Comment $comment
- * @property Category $category
- * @property Blog $blog
- */
 class HomeController extends Controller
 {
 
     protected $layout = 'home/layout';
 
     protected $categories;
-    
-    protected $cacheEngine = 'redis';
-    
-    protected $cacheActions = array('index' => null);
+
+    protected $cacheEngine = 'memcache';
+
+    protected $cacheActions = array(
+        'index' => null
+    );
 
     public function __construct()
     {
         $this['baseUrl'] = $this->request->getBaseUrl();
+        $this->blog = new Blog();
+        $this->category = new Category();
+        $this->comment = new Comment();
     }
 
     /**
@@ -46,7 +45,23 @@ class HomeController extends Controller
         $maxPage = ceil($blogs['total'] / $this['blog_page_size']);
         
         $pages = range(($st = $page - ceil($this['blog_bottom_page_numbers'] / 2)) > 0 ? $st : 1, $maxPage > $this['blog_bottom_page_numbers'] ? $this['blog_bottom_page_numbers'] : $maxPage);
+        
+        $this->render('page', array(
+            'posts' => $blogs['rows'],
+            'pages' => $pages,
+            'page' => $page
+        ));
+    }
 
+    public function actionCategory($tag, $page = 1)
+    {
+        $page = (int) $page;
+        $blogs = $this->blog->getList($page, null, $tag);
+        
+        $maxPage = ceil($blogs['total'] / $this['blog_page_size']);
+        
+        $pages = range(($st = $page - ceil($this['blog_bottom_page_numbers'] / 2)) > 0 ? $st : 1, $maxPage > $this['blog_bottom_page_numbers'] ? $this['blog_bottom_page_numbers'] : $maxPage);
+        
         $this->render('page', array(
             'posts' => $blogs['rows'],
             'pages' => $pages,

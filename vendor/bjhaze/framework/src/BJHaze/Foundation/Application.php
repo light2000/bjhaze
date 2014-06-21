@@ -72,58 +72,21 @@ class Application extends Container
             )
         );
         
-        static::$lateBindings = array_replace_recursive($components, $config);
-        
-        $this['app'] = $this;
-        
-        $this->registerPaths($config);
-        
-        $this->initExceptionHandler();
-        
-        if (false == $config['composer'])
-            $this->registerIncludePath();
-        
-        if (! empty($config['timezone']))
-            date_default_timezone_set($config['timezone']);
-    }
-
-    /**
-     * Set application paths
-     *
-     * @param array $config            
-     * @return void
-     */
-    public function registerPaths(array $config)
-    {
-        foreach ($config as $key => $value)
-            if ('Path' == substr($key, - 4))
-                $this[$key] = $value;
+        static::$bindings = $config;
+        static::$lateBindings = array_replace_recursive($components, $config['components']);
         
         if (null === $this['basePath'])
             throw new \LogicException('basePath must be set in application config');
+        if (null === $this['modulePath'])
+            $this['modulePath'] = $this['basePath'] . DIRECTORY_SEPARATOR . 'modules';
+        set_include_path(get_include_path() . PATH_SEPARATOR . $this['basePath'] . DIRECTORY_SEPARATOR . 'components');
         
-        foreach (array(
-            'view',
-            'controller',
-            'model',
-            'component'
-        ) as $key)
-            if (null === $this[$key . 'Path'])
-                $this[$key . 'Path'] = $this['basePath'] . DIRECTORY_SEPARATOR . $key . 's';
-    }
-
-    /**
-     * If you dont use composer, set config composer false, this method will work
-     *
-     * @return void
-     */
-    public function registerIncludePath()
-    {
-        $includePath = '';
-        foreach (static::$bindings as $key => $value)
-            if ('Path' == substr($key, - 4))
-                $includePath .= PATH_SEPARATOR . $value;
-        set_include_path(get_include_path() . $includePath);
+        $this->initExceptionHandler();
+        
+        if (! empty($config['timezone']))
+            date_default_timezone_set($config['timezone']);
+        
+        parent::__construct();
     }
 
     /**
@@ -152,34 +115,12 @@ class Application extends Container
      */
     public function dispatch(RouterInterface $router, RequestInterface $request)
     {
-        list ($action, $params) = $router->dispatch($request);
+        $responseContent = $router->dispatch($request);
         
-        if ($action instanceof Closure) {
-            $response = Component::anonymousInvoke($action, $params);
-        } elseif (is_string($action) && strpos($action, '@')) {
-            $response = Component::atInvoke($action, $params);
-        }
-        
-        if ($response)
-            $this->response->setContent($response);
+        if ($responseContent)
+            $this->response->setContent($responseContent);
         
         $this->response->send();
-    }
-
-    /**
-     * Register a "start" callback.
-     *
-     * @return void
-     */
-    public function startRun(Closure $callback = null, $priority = 1)
-    {
-        if (null !== $callback) {
-            if (null === $this->startCallbackQueue)
-                $this->startCallbackQueue = new SplPriorityQueue();
-            $this->startCallbackQueue->insert($callback, $priority);
-        } elseif (null !== $this->startCallbackQueue)
-            foreach ($this->startCallbackQueue as $start)
-                $start();
     }
 
     /**
@@ -197,6 +138,22 @@ class Application extends Container
         $this->startRun();
         $this->dispatch($router, $request);
         $this->finishRun();
+    }
+
+    /**
+     * Register a "start" callback.
+     *
+     * @return void
+     */
+    public function startRun(Closure $callback = null, $priority = 1)
+    {
+        if (null !== $callback) {
+            if (null === $this->startCallbackQueue)
+                $this->startCallbackQueue = new SplPriorityQueue();
+            $this->startCallbackQueue->insert($callback, $priority);
+        } elseif (null !== $this->startCallbackQueue)
+            foreach ($this->startCallbackQueue as $start)
+                $start();
     }
 
     /**

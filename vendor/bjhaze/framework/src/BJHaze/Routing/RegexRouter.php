@@ -9,7 +9,7 @@ namespace BJHaze\Routing;
 use Closure, ReflectionFunction, ReflectionMethod;
 use BJHaze\Http\RequestInterface;
 
-class RegexRouter implements RouterInterface
+class RegexRouter extends Router implements RouterInterface
 {
 
     const REGEX_DELIMITER = '#';
@@ -62,7 +62,7 @@ class RegexRouter implements RouterInterface
     {
         $this->rules = $rules;
         $this->variablePatterns = $patterns;
-        $this->separator = $separator;
+        parent::__construct($separator);
     }
 
     /**
@@ -278,7 +278,7 @@ class RegexRouter implements RouterInterface
      */
     public function dispatch(RequestInterface $request)
     {
-        return $this->forward($request->getPathInfo(), $request->getBaseUrl(true), $this->getFrom($request)) ?  : $this->missingAction();
+        return $this->forward($request->getPathInfo(), $request->getBaseUrl(true), $this->getFrom($request));
     }
 
     /**
@@ -302,12 +302,10 @@ class RegexRouter implements RouterInterface
                 $action = $rule['action'];
                 if (is_string($action) && false !== strpos($action, '{'))
                     $action = self::complie($action, $params);
-                return array(
-                    $action,
-                    $params
-                );
+                return parent::forward($action, $params);
             }
         }
+        return parent::forward($requestPath);
     }
 
     /**

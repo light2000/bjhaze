@@ -1,20 +1,17 @@
 <?php
 use BJHaze\Routing\Controller;
 
-/**
- *
- * @property Comment $comment
- * @property Category $category
- * @property Blog $blog
- * @property User $user
- * @property LoginFilter $loginFilter
- */
-class AdminController extends Controller
+class HomeController extends Controller
 {
 
     public function __construct()
     {
         $this['baseUrl'] = $this->request->getBaseUrl();
+        $this->comment = new Comment();
+        $this->category = new Category();
+        $this->blog = new Blog();
+        $this->user = new User();
+        $this->loginFilter = new LoginFilter();
     }
 
     public function getBeforeBehaviors($action, array $parameters = null)
@@ -46,7 +43,7 @@ class AdminController extends Controller
     public function actionLogout()
     {
         $this->user->logout();
-        $this->redirect('/admin/login');
+        $this->redirect('/admin/home/login');
     }
 
     public function actionIndex()

@@ -412,6 +412,7 @@ class Request implements RequestInterface
         if (null === $this->_isMobileDevice) {
             $this->_isMobileDevice = (boolean) $this->getBrowser()['ismobiledevice'];
         }
+        
         return $this->_isMobileDevice;
     }
 
@@ -554,6 +555,7 @@ class Request implements RequestInterface
     {
         if (null === $this->_showScriptName)
             $this->_showScriptName = 0 === strpos($this->getRequestUri(), $this->getScriptUrl());
+        
         return $this->_showScriptName;
     }
 

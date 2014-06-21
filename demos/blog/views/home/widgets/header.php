@@ -6,7 +6,7 @@
 		<div id="header-nav" class="right">
 			<ul class="nav left n320">
 			<?php foreach ($categories as $category):?>
-				<li><a href="/category/<?php echo $category['id'];?>" class="block"><?php echo $category['category_name'];?></a></li>
+				<li><a href="<?php echo $this['baseUrl'];?>/category/<?php echo $category['id'];?>" class="block"><?php echo $category['category_name'];?></a></li>
 			<?php endforeach;?>
 			</ul>
 		</div>

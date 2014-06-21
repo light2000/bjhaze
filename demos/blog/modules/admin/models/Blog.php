@@ -59,4 +59,15 @@ class Blog extends Model
             $this->db->where('category_id = ?', $categoryID);
         return $this->db->queryPaging($this->connection);
     }
+
+    /**
+     *
+     * @param mixed $categoryID            
+     */
+    public function deletePostByCategoryId($categoryID)
+    {
+        return $this->db->delete($this->table)
+            ->where('category_id IN ?', (array) $categoryID)
+            ->execute($this->connection);
+    }
 }

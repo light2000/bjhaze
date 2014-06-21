@@ -23,25 +23,29 @@ $config = array(
     'basePath' => dirname(__DIR__),
     'composer' => USE_COMPOSER,
     'timezone' => 'PRC',
-    'sessionHandler' => array(
-        'class' => 'BJHaze\Session\Handler\File',
-        'path' => dirname(__DIR__) . '/tmp'
-    ),
-    'login' => array(
-        'class' => 'LoginFilter'
-    ),
-    'db' => require 'db.php',
-    'router' => require 'routes.php',
-    'cache' => require 'cache.php',
-    'response' => array(
-        'charset' => 'gbk'
-    ),
     'blog_page_size' => 10,
     'comment_page_size' => 10,
     'blog_bottom_page_numbers' => 5,
     'site_name' => 'bjhaze demo',
     'site_keywords' => 'bjhaze,php5.4 framework',
-    'site_description' => 'bjhaze is a simple php5.4 mvc framework'
-);
+    'site_description' => 'bjhaze is a simple php5.4 mvc framework',
+    'modules' => array('admin'),
+    'components' => array(
+        'sessionHandler' => array(
+            'class' => 'BJHaze\Session\Handler\File',
+            'path' => dirname(__DIR__) . '/tmp'
+        ),
+        'login' => array(
+            'class' => 'LoginFilter'
+        ),
+        'db' => require 'db.php',
+        'router' => require 'routes.php',
+        'cache' => require 'cache.php',
+        'response' => array(
+            'charset' => 'gbk'
+        )
+    )
+)
+;
 
 return new \BJHaze\Foundation\Application($config);

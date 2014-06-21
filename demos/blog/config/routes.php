@@ -4,34 +4,34 @@ return array(
     'rules' => array(
         array(
             'path' => '/',
-            'action' => 'HomeController@index',
+            'action' => 'home/index',
             'from' => Router::GET
         ),
         array(
             'path' => '/{page}',
-            'action' => 'HomeController@page',
+            'action' => 'home/page',
             'from' => Router::GET
         ),
         array(
             'path' => '/category/{tag}',
-            'action' => 'HomeController@category',
+            'action' => 'home/category',
             'from' => Router::GET
         ),
         array(
             'path' => '/post/{id}',
-            'action' => 'HomeController@post',
+            'action' => 'home/post',
             'from' => Router::GET
         ),
         array(
             'path' => '/comment',
-            'action' => 'HomeController@comment',
+            'action' => 'home/comment',
             'from' => Router::POST
         ),
-        array(
+       /*  array(
             'path' => '/admin/{action}?', // "?" in here is the same in regex
-            'action' => 'AdminController@{action}',
+            'action' => 'admin@{action}',
             'from' => Router::GET | Router::POST
-        )
+        ) */
     ),
     'patterns' => array(
         'id' => '\d+',
