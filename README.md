@@ -32,7 +32,7 @@ $config = array(
 		composer：是否使用composer实现php类的自动加载。
 		timezone：时区设置。
 		modules：站点模块(module)集合。
-		components：组件配置集合。组件项可使用componentName => array('class' => 'classname')替换默认加载类。
+		components：组件配置集合。组件项可使用componentName => array('class' => 'classname')替换默认加载类。所有component项可以在控制器(Controller)及模型(Model)中直接调用。
 ### bjhaze默认加载组件
 		request：BJHaze\Http\Request
 		response：BJHaze\Http\Response
@@ -65,9 +65,14 @@ return array(
 );
 ```
 ### 基础路由(Router)
-		bjhaze基础路由(Router)使用类似controller/action/key/value(moudle/controller/action)的方式处理连接请求。连接参数默认使用key/value的形式。router配置的separator项可以修改分隔符。defaultController和defaultAction项对应默认控制器和方法。
+		bjhaze基础路由(Router)使用类似controller/action/key/value(moudle/controller/action)的方式处理连接请求。
+		连接参数默认使用key/value的形式。
+		router配置的separator项可以修改分隔符。
+		defaultController和defaultAction项对应默认控制器和方法。
 ### 正则路由(RegexRouter)
-		bjhaze默认的请求分发方式。在基础路由(Router)的基础上，正则路由(RegexRouter)提供了对URL进行重写的功能。通过配置项rules和patterns，可以在默认路由的基础上进行URL的新匹配与重写。
+		bjhaze默认的请求分发方式。
+		在基础路由(Router)的基础上，正则路由(RegexRouter)提供了对URL进行重写的功能。
+		通过配置项rules和patterns，可以在默认路由的基础上进行URL的新匹配与重写。
 控制器(Controller)
 -----------------------------------
 ### 输出页面
@@ -75,9 +80,11 @@ return array(
 		eg:$this->renderJSON(array('data' => array(..)));
 		$this->renderXML(array('data' => array(..)));
 		$this->render('homepage', array('data' => array(..)));
-		当进行HTML输出时，默认从appliaction/views/controllername/目录寻找模板使用$this->render('/homepage', array('data' => array(..)));则在views根目录寻找模板。
+		当进行HTML输出时，默认从appliaction/views/controllername/
 ### 加载挂件
-		bjhaze控制器使用widget方法加载挂件。参数分别为Widget类名，和加载参数。eg:$this->widget('Footer', array('friendLinks' => ..));
+		bjhaze控制器使用widget方法加载挂件。
+		参数分别为Widget类名，和加载参数。
+		eg:$this->widget('Footer', array('friendLinks' => ..));
 挂件(Widget)
 -----------------------------------
 ### bjhaze挂件通过实现run方法，并在方法中调用render实现渲染。实例：
@@ -129,7 +136,8 @@ class Category extends Model
     public function validations()
     {
         return array(
-            'addtime' => 'date'//添加和更新记录时对应的字段验证,具体验证支持请察看BJHaze\Validation\Validator类。
+            'addtime' => 'date'//添加和更新记录时对应的字段验证,
+            //具体验证支持请察看BJHaze\Validation\Validator类。
         );
     }
 }
@@ -140,7 +148,8 @@ $category = new Category();
 
 $category->create(array('name' => 'catname'));
 
-$category->update(array('id' => 1,  'name' => 'catname'));//必须提供主键id作为更新条件,如果是联合主键则必须提供全部主键相应的键名
+$category->update(array('id' => 1,  'name' => 'catname'));//必须提供主键id作为更新条件,
+//如果是联合主键则必须提供全部主键相应的键名
 
 $category->delete(1)//如果是单一主键支持数组array(1,2,3)的形式批量删除
 
@@ -172,7 +181,9 @@ $this->db->select()
          ->from('{{table}}')// 表名使用"{{ table_name}}"会在SQL执行时自动添加表前缀。
          ->leftJoin('{{table2}}', '{{table}}.id = {{table2}}.id')
          ->where(array( 'id' => 11)) //  这等同于 where('id = ?', 11) 
-         ->orWhere('id > ?', 21)//必须使用'?'作为占位符,BJHaze\Database\Manager弃用了:id  方便多批次的参数绑定在同一个SQL。这使得一些不支持批量插入的数据库也可以用insert插入多条数据。
+         ->orWhere('id > ?', 21)//必须使用'?'作为占位符,
+         //BJHaze\Database\Manager弃用了:id  方便多批次的参数绑定在同一个SQL。
+         //这使得一些不支持批量插入的数据库也可以用insert插入多条数据。
          ->limit(10,10)
          ->queryAll('def');//def为对应的数据库配置 ，如果不填写则使用默认数据库
 ```
