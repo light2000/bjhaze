@@ -32,7 +32,9 @@ $config = array(
 		composer：是否使用composer实现php类的自动加载。
 		timezone：时区设置。
 		modules：站点模块(module)集合。
-		components：组件配置集合。组件项可使用componentName => array('class' => 'classname')替换默认加载类。所有component项可以在控制器(Controller)及模型(Model)中直接调用。
+		components：组件配置集合。
+		组件项可使用componentName => array('class' => 'classname')替换默认加载类。
+		所有component项可以在控制器(Controller)及模型(Model)中直接调用。
 ### bjhaze默认加载组件
 		request：BJHaze\Http\Request
 		response：BJHaze\Http\Response
@@ -65,8 +67,8 @@ return array(
 );
 ```
 ### 基础路由(Router)
-		bjhaze基础路由(Router)使用类似controller/action/key/value(moudle/controller/action)的方式处理连接请求。
-		连接参数默认使用key/value的形式。
+		bjhaze基础路由(Router)使用类似controller/action(moudle/controller/action)的方式处理连接请求。
+		连接参数默认使用controller/action/key1/value1/key2/value2的形式。
 		router配置的separator项可以修改分隔符。
 		defaultController和defaultAction项对应默认控制器和方法。
 ### 正则路由(RegexRouter)
