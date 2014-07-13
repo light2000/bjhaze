@@ -1,6 +1,5 @@
 <?php
 return array(
-    'keyPrefix' => 'bjhaze',
     'default' => 'apc',
     'servers' => array(
         'apc' => array(
@@ -14,7 +13,8 @@ return array(
                 'timeout' => 0,
                 'pconnect' => false,
                 'auth' => null
-            )
+            ),
+            'prefix' => 'bjhaze_redis'
         ),
         'memcache' => array(
             'driver' => 'memcache',
@@ -26,5 +26,5 @@ return array(
             )
         )
     )
-    
-);
+)
+;

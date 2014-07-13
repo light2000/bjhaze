@@ -8,9 +8,12 @@
 namespace BJHaze\Foundation;
 
 use Closure, SplPriorityQueue;
-use BJHaze\Http\RequestInterface;
-use BJHaze\Routing\RouterInterface;
 
+/**
+ *
+ * @property \BJHaze\Routing\RegexRouter $router Http Request Router
+ * @property \BJHaze\Http\Request $request Http Request
+ */
 class Application extends Container
 {
 
@@ -35,7 +38,7 @@ class Application extends Container
      */
     public function __construct(array $config)
     {
-        $components = array(
+        static $components = array(
             'request' => array(
                 'class' => 'BJHaze\Http\Request'
             ),
@@ -77,8 +80,10 @@ class Application extends Container
         
         if (null === $this['basePath'])
             throw new \LogicException('basePath must be set in application config');
+        
         if (null === $this['modulePath'])
             $this['modulePath'] = $this['basePath'] . DIRECTORY_SEPARATOR . 'modules';
+        
         set_include_path(get_include_path() . PATH_SEPARATOR . $this['basePath'] . DIRECTORY_SEPARATOR . 'components');
         
         $this->initExceptionHandler();
@@ -86,7 +91,7 @@ class Application extends Container
         if (! empty($config['timezone']))
             date_default_timezone_set($config['timezone']);
         
-        parent::__construct();
+        $this['container'] = $this;
     }
 
     /**
@@ -109,34 +114,15 @@ class Application extends Container
     }
 
     /**
-     * Run the application and send the response.
-     *
-     * @return void
-     */
-    public function dispatch(RouterInterface $router, RequestInterface $request)
-    {
-        $responseContent = $router->dispatch($request);
-        
-        if ($responseContent)
-            $this->response->setContent($responseContent);
-        
-        $this->response->send();
-    }
-
-    /**
      * Run the Application.
      *
      * @return void
      */
-    public function run(RouterInterface $router = null, RequestInterface $request = null)
+    public function run()
     {
-        if (empty($router))
-            $router = $this->router;
-        if (empty($request))
-            $request = $this->request;
-        
         $this->startRun();
-        $this->dispatch($router, $request);
+        $this->router->forward($this->request->getPathInfo(), $this->request->getBaseUrl(true));
+        $this->response->send();
         $this->finishRun();
     }
 

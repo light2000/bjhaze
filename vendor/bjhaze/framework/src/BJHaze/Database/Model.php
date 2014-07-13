@@ -6,14 +6,14 @@
  */
 namespace BJHaze\Database;
 
+use ReflectionMethod, Closure;
+use BJHaze\Foundation\Container;
+
 class ModelValidateException extends \RuntimeException
 {
 }
 
-use BJHaze\Foundation\Component;
-use ReflectionMethod, Closure;
-
-class Model extends Component
+class Model extends Container
 {
 
     /**
@@ -42,16 +42,6 @@ class Model extends Component
      * @return array
      */
     public function validations()
-    {
-        return array();
-    }
-
-    public function getBeforeBehaviors($action, array $parameters = null)
-    {
-        return array();
-    }
-
-    public function getAfterBehaviors($action, array $parameters = null)
     {
         return array();
     }

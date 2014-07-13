@@ -8,12 +8,6 @@ class HomeController extends Controller
 
     protected $categories;
 
-    protected $cacheEngine = 'memcache';
-
-    protected $cacheActions = array(
-        'index' => null
-    );
-
     public function __construct()
     {
         $this['baseUrl'] = $this->request->getBaseUrl();
@@ -89,55 +83,4 @@ class HomeController extends Controller
         }
         $this->redirect('/post/' . $comment['blog_id']);
     }
-    
-    // *** widgets begin***
-    
-    /**
-     * footer
-     */
-    public function actionFooter()
-    {
-        if (empty($this->categories))
-            $this->categories = $this->category->getList();
-        $this->render('widgets/footer', array(
-            'categories' => $this->categories
-        ));
-    }
-
-    public function actionHeader()
-    {
-        if (empty($this->categories))
-            $this->categories = $this->category->getList();
-        $this->render('widgets/header', array(
-            'categories' => $this->categories
-        ));
-    }
-
-    public function actionLinks()
-    {
-        $this->render('widgets/links', array(
-            'links' => array(
-                'BJHaze Wiki' => 'https://code.csdn.net/vn700/bjhaze/wikis',
-                'BJHaze Home' => 'https://code.csdn.net/vn700/bjhaze'
-            )
-        ));
-    }
-
-    public function actionNewPosts()
-    {
-        $posts = $this->blog->getList(1, 12);
-        $this->render('widgets/new_posts', array(
-            'posts' => $posts['rows']
-        ));
-    }
-
-    public function actionComments()
-    {
-        $comments = $this->comment->getList(1, 12);
-        $this->render('widgets/comments', array(
-            'comments' => $comments['rows']
-        ));
-    }
-    
-    // *** widgets end***
 }

@@ -42,7 +42,8 @@ $config = array(
         'router' => require 'routes.php',
         'cache' => require 'cache.php',
         'response' => array(
-            'charset' => 'gbk'
+            'charset' => 'gbk',
+            'cachePaths' => array()
         )
     )
 )

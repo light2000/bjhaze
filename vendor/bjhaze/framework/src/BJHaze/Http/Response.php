@@ -6,6 +6,8 @@
  */
 namespace BJHaze\Http;
 
+use BJHaze\Cache\CacheManager;
+
 class Response
 {
 
@@ -35,6 +37,27 @@ class Response
      * @var string
      */
     protected $content;
+
+    /**
+     * CacheManager instance
+     *
+     * @var CacheManager
+     */
+    protected $cache;
+
+    /**
+     * Cache path info
+     *
+     * @var array
+     */
+    protected $cachePaths;
+
+    /**
+     * Response cache uri
+     *
+     * @var string
+     */
+    protected $cacheUri;
 
     /**
      * Status codes translation table.
@@ -115,10 +138,37 @@ class Response
      *
      * @param string $charset            
      */
-    public function __construct($charset = 'utf8')
+    public function __construct($charset = 'utf8', CacheManager $cache, $cachePaths = array())
     {
         $this->charset = $charset;
+        $this->cache = $cache;
+        $this->cachePaths = $cachePaths;
         $this->setHeader('Content-Type', 'charset=' . $charset);
+    }
+
+    /**
+     * get response from cache
+     *
+     * @param string $uri            
+     * @param string $baseUrl            
+     * @return boolean
+     */
+    public function restoreFromCache($uri, $baseUrl = '')
+    {
+        foreach ($this->cachePaths as $path => $exprie) {
+            if (0 === strpos($path, 'http') && 0 === strpos($baseUrl . $uri, $path) || 0 === strpos($uri, $path)) {
+                $response = $this->cache->get($path);
+                if (! empty($response)) {
+                    $this->headers = $response['headers'];
+                    $this->content = $response['content'];
+                    $this->cacheUri = null;
+                    return true;
+                } else
+                    $this->cacheUri = $uri;
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -226,6 +276,7 @@ class Response
      */
     public function send()
     {
+        $this->beforeSend();
         $this->sendHeaders();
         $this->sendContent();
         
@@ -233,5 +284,60 @@ class Response
             fastcgi_finish_request();
         elseif ('cli' !== PHP_SAPI && ob_get_level() > 0)
             flush();
+        
+        if (! empty($this->cacheUri))
+            $this->cache->set($this->cacheUri, array(
+                'headers' => $this->headers,
+                'content' => $this->content
+            ));
+        
+        $this->afterSend();
+    }
+
+    /**
+     * startRun callback queue
+     *
+     * @var SplPriorityQueue
+     */
+    protected $startCallbackQueue;
+
+    /**
+     * finishRun callback queue
+     *
+     * @var SplPriorityQueue
+     */
+    protected $finishCallbackQueue;
+
+    /**
+     * Register a "before response" callback.
+     *
+     * @return void
+     */
+    public function beforeSend(Closure $callback = null, $priority = 1)
+    {
+        if (null !== $callback) {
+            if (null === $this->startCallbackQueue)
+                $this->startCallbackQueue = new SplPriorityQueue();
+            $this->startCallbackQueue->insert($callback, $priority);
+        } elseif (null !== $this->startCallbackQueue)
+            foreach ($this->startCallbackQueue as $start)
+                $start();
+    }
+
+    /**
+     * Register a "after response" callback.
+     *
+     * @param Closure $callback            
+     * @return void
+     */
+    public function afterSend(Closure $callback = null, $priority = 1)
+    {
+        if (null !== $callback) {
+            if (null === $this->finishCallbackQueue)
+                $this->finishCallbackQueue = new SplPriorityQueue();
+            $this->finishCallbackQueue->insert($callback, $priority);
+        } elseif (null !== $this->finishCallbackQueue)
+            foreach ($this->finishCallbackQueue as $finish)
+                $finish();
     }
 }

@@ -28,7 +28,7 @@ namespace BJHaze\Http;
  * @property integer $port Port number for insecure requests.
  * @property boolean $showScriptName whether use url rewrite hide entry script name
  */
-class Request implements RequestInterface
+class Request
 {
 
     /**

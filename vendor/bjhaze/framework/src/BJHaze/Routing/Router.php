@@ -6,10 +6,9 @@
  */
 namespace BJHaze\Routing;
 
-use BJHaze\Http\RequestInterface;
 use BJHaze\Foundation\Container;
 
-class Router extends Container implements RouterInterface
+class Router
 {
 
     /**
@@ -33,22 +32,19 @@ class Router extends Container implements RouterInterface
      */
     protected $defaultAction;
 
-    public function __construct($separator = '/', $defaultController = 'home', $defaultAction = 'index')
+    /**
+     * Application instance
+     *
+     * @var Container
+     */
+    protected $container;
+
+    public function __construct(Container $container, $separator = '/', $defaultController = 'home', $defaultAction = 'index')
     {
+        $this->container = $container;
+        $this->separator = $separator;
         $this->defaultController = $defaultController;
         $this->defaultAction = $defaultAction;
-        $this->separator = '/';
-        parent::__construct();
-    }
-
-    /**
-     * (non-PHPdoc)
-     *
-     * @see \BJHaze\Routing\RouterInterface::forward()
-     */
-    public function dispatch(RequestInterface $request)
-    {
-        return $this->forward($request->getPathInfo()) ?  : $this->missingAction();
     }
 
     /**
@@ -57,30 +53,39 @@ class Router extends Container implements RouterInterface
      * @param string $requestPath            
      * @return mixed
      */
-    public function forward($requestPath, array $params = array())
+    public function forward($requestPath, $baseUrl = null)
     {
+        // response cache hit
+        if ($this->container->response->restoreFromCache($requestPath, $baseUrl))
+            return;
         $parts = explode($this->separator, trim($requestPath, $this->separator), 3);
-        if (in_array($parts[0], (array) $this['modules'])) {
-            $this->registerPaths($this['modulePath'] . DIRECTORY_SEPARATOR . $parts[0]);
-            $controllerName = isset($parts[1]) ? $parts[1] : $this->defaultController;
+        $params = array();
+        // path name found in modules
+        if (in_array($parts[0], (array) $this->container['modules'])) {
+            $this->registerPaths($this->container['modulePath'] . DIRECTORY_SEPARATOR . $parts[0]);
+            $controller = isset($parts[1]) ? $parts[1] : $this->defaultController;
             if (isset($parts[2])) {
-                $part = explode($this->separator, $parts[2], 2);
-                $action = $part[0];
-                if (! empty($part[1]))
-                    $params = array_merge(self::fetchParams($part[1]), $params);
+                $actionParts = explode($this->separator, $parts[2], 2);
+                $action = $actionParts[0];
+                if (! empty($actionParts[1]))
+                    $params = $this->fetchParams($actionParts[1]);
             } else
                 $action = $this->defaultAction;
         } else {
-            $this->registerPaths($this['basePath']);
-            $controllerName = ! empty($parts[0]) ? $parts[0] : $this->defaultController;
+            // normal path handle
+            $this->registerPaths($this->container['basePath']);
+            $controller = ! empty($parts[0]) ? $parts[0] : $this->defaultController;
             $action = isset($parts[1]) ? $parts[1] : $this->defaultAction;
             if (isset($parts[2]))
-                $params = array_merge(self::fetchParams($parts[2]), $params);
+                $params = $this->fetchParams($parts[2]);
         }
         
-        $controllerName = ucfirst($controllerName) . 'Controller';
-        $controller = new $controllerName();
-        return $controller->runActionWithBehavior($action, $params, true);
+        $controller = ucfirst($controller) . 'Controller';
+        
+        if (! class_exists($controller, true))
+            $this->missingAction();
+        else
+            return (new $controller())->runAction($action, $params, true);
     }
 
     /**
@@ -92,8 +97,12 @@ class Router extends Container implements RouterInterface
     {
         $parts = explode($this->separator, $part);
         $params = array();
-        foreach ($parts as $key => $value)
-            $params[$key] = isset($parts[$key + 1]) ? $parts[$key + 1] : null;
+        $i = 0;
+        $n = sizeof($parts);
+        while ($i < $n) {
+            $params[$parts[$i]] = isset($parts[$i + 1]) ? $parts[$i + 1] : null;
+            $i += 2;
+        }
         return $params;
     }
 
@@ -105,16 +114,19 @@ class Router extends Container implements RouterInterface
      */
     public function registerPaths($basePath)
     {
+        $includePath = '';
         foreach (array(
             'view',
             'controller',
             'model',
-            'component'
+            'component',
+            'widget'
         ) as $key) {
-            if (null === $this[$key . 'Path'])
-                $this[$key . 'Path'] = $basePath . DIRECTORY_SEPARATOR . $key . 's';
-            set_include_path(get_include_path() . PATH_SEPARATOR . $this[$key . 'Path']);
+            if (null === $this->container[$key . 'Path'])
+                $this->container[$key . 'Path'] = $basePath . DIRECTORY_SEPARATOR . $key . 's';
+            $includePath .= PATH_SEPARATOR . $this->container[$key . 'Path'];
         }
+        set_include_path(get_include_path() . $includePath);
     }
 
     /**

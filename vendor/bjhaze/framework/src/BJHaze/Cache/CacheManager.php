@@ -10,6 +10,13 @@ class CacheManager implements Engine\CacheInterface
 {
 
     /**
+     * Cache server configs sets
+     *
+     * @var array
+     */
+    protected $servers;
+
+    /**
      * The default cache engine
      *
      * @var string
@@ -17,30 +24,21 @@ class CacheManager implements Engine\CacheInterface
     protected $engine;
 
     /**
-     * The cache key prefix
-     *
-     * @var string
-     */
-    protected $prefix;
-
-    /**
      * Cache class sets
      *
      * @var array
      */
-    protected $servers;
+    protected $engines;
 
     /**
      * Constructor
      *
      * @param array $servers
-     *            eg: driver => 'memcache', servers=>(..)
-     * @param string $prefix            
+     *            eg: engine => 'memcache', servers=>(..)
      * @param string $default            
      */
-    public function __construct(array $servers, $keyPrefix = '', $default = null)
+    public function __construct(array $servers, $default = null)
     {
-        $this->prefix = $keyPrefix;
         $this->engine = $default ?  : key($servers);
         $this->servers = $servers;
     }
@@ -48,34 +46,53 @@ class CacheManager implements Engine\CacheInterface
     /**
      * Get the cache engine instance
      *
-     * @param string $key            
+     * @throws \RuntimeException
      * @return CacheInterface
      */
-    public function getEngine($key = NULL)
+    protected function getEngine()
     {
-        if (null == $key)
-            $key = $this->engine;
-        if (! empty($this->servers[$key])) {
-            if (is_array($this->servers[$key])) {
-                switch ($this->servers[$key]['driver']) {
+        $engine = $this->engine;
+        if (! isset($this->engines[$engine])) {
+            if (! empty($this->servers[$engine])) {
+                $prefix = isset($this->servers[$engine]['prefix']) ? $this->servers[$engine]['prefix'] : '';
+                switch ($this->servers[$engine]['engine']) {
                     case 'apc':
-                        $this->servers[$key] = new Engine\Apc($this->prefix);
+                        $this->engines[$engine] = new Engine\Apc($prefix);
                         break;
                     case 'memcache':
-                        $this->servers[$key] = new Engine\Memcache($this->servers[$key]['servers'], $this->prefix);
+                        $this->engines[$engine] = new Engine\Memcache($this->servers[$engine]['servers'], $prefix);
                         break;
                     case 'memcached':
-                        $this->servers[$key] = new Engine\Memcached($this->servers[$key]['servers'], $this->prefix);
+                        $this->engines[$engine] = new Engine\Memcached($this->servers[$engine]['servers'], $prefix);
                         break;
                     case 'redis':
-                        $this->servers[$key] = new Engine\Redis($this->servers[$key]['server'], $this->prefix);
+                        $this->engines[$engine] = new Engine\Redis($this->servers[$engine]['server'], $prefix);
+                        break;
+                    default:
+                        throw new \RuntimeException(sprintf("no cache engine named %s", $this->servers[$engine]['engine']), 500);
                 }
-            }
-            
-            return $this->servers[$key];
+            } else
+                throw new \RuntimeException(sprintf("no cache config named %s", $engine), 500);
         }
+        
+        return $this->engines[$engine];
     }
 
+    /**
+     * Set the defalut cache config
+     *
+     * @param string $key            
+     * @throws \RuntimeException
+     */
+    public function setEngine($key)
+    {
+        if (! empty($this->servers[$key])) {
+            $this->engine = $key;
+            return $this;
+        } else
+            throw new \RuntimeException(sprintf("no cache engine named %s", $key), 500);
+    }
+    
     public function set($key, $value, $ttl = 0)
     {
         return $this->getEngine()->set($key, $value, $ttl);

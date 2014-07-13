@@ -11,17 +11,12 @@ class HomeController extends Controller
         $this->category = new Category();
         $this->blog = new Blog();
         $this->user = new User();
-        $this->loginFilter = new LoginFilter();
     }
 
-    public function getBeforeBehaviors($action, array $parameters = null)
+    public function beforeAction($actionID)
     {
-        $before = array();
-        if ($action != 'login') {
-            $this->loginFilter->setUser($this->user);
-            $before[] = $this->loginFilter;
-        }
-        return $before;
+        if ('login' != $actionID && ! $this->user->isLogin())
+            throw new RuntimeException(sprintf("guest can not pass action %s", $actionID), 403);
     }
 
     public function actionLogin($username = null, $password = null)

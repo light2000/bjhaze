@@ -56,6 +56,16 @@ class Manager
     }
 
     /**
+     *
+     * @param string $key            
+     * @param mixed $value            
+     */
+    public function __set($key, $value)
+    {
+        $this->set($key, $value);
+    }
+
+    /**
      * Session get
      *
      * @param string $key            
@@ -67,6 +77,16 @@ class Manager
     }
 
     /**
+     * get session data
+     *
+     * @param string $key            
+     */
+    public function __get($key)
+    {
+        return $this->get($key);
+    }
+
+    /**
      * Session delete
      *
      * @param string $key            
@@ -74,10 +94,5 @@ class Manager
     public function delete($key)
     {
         unset($_SESSION[$key]);
-    }
-
-    public function __get($key)
-    {
-        return $this->get($key);
     }
 }

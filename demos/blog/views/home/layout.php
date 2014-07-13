@@ -11,14 +11,14 @@
 </head>
 <body>
 	<div id="top" class="bing-bg"></div>
-<?php $this->widget('header');?>
+<?php $this->widget('Header');?>
 <div id="content" class="auto clear">
 		<div class="wrapper">
-        <?php include $mainFile;?>
+        <?php include $viewFile;?>
         <div id="sidebar" class="right">
-            <?php $this->widget('newposts');?>
-            <?php $this->widget('comments');?>
-            <?php $this->widget('links')?>
+            <?php $this->widget('NewPost');?>
+            <?php $this->widget('Comments');?>
+            <?php $this->widget('Links')?>
 		    <div class="sidebar-widget">
 					<div class="sidebar-div block">
 						<a href="#top" class="btn-scroll"><h4 class="sidebar-title">
@@ -30,6 +30,6 @@
 			<div class="clear"></div>
 		</div>
 	</div>
-<?php $this->widget('footer');?>
+<?php $this->widget('Footer');?>
 </body>
 </html>

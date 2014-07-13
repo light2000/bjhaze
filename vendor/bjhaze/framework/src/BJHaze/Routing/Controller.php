@@ -1,4 +1,5 @@
 <?php
+
 /**
  *
  * Controller class
@@ -6,9 +7,10 @@
  */
 namespace BJHaze\Routing;
 
-use BJHaze\Foundation\Component;
+use ArrayAccess, Closure, ReflectionClass, ReflectionFunctionAbstract, ReflectionMethod, ReflectionFunction;
+use BJHaze\Foundation\Container;
 
-class Controller extends Component
+class Controller extends Container
 {
 
     /**
@@ -49,59 +51,6 @@ class Controller extends Component
         return 'index';
     }
 
-    public function runActionWithBehavior($actionID, array $parameters = array(), $fixParam = false)
-    {
-        if ('' == ($actionID = trim($actionID, '/')))
-            $actionID = $this->getDefaultAction();
-        if (method_exists($this, 'action' . $actionID)) {
-            return parent::runActionWithBehavior($actionID, array_merge($this->getActionParams(), $parameters), $fixParam);
-        } else
-            return $this->missingAction($actionID);
-    }
-
-    public function runAction($actionID, array $parameters = array(), $fixParam = false)
-    {
-        if (is_string($actionID))
-            $action = 'action' . $actionID;
-        return parent::runAction($action, $parameters, $fixParam);
-    }
-
-    public function getBeforeBehaviors($action, array $parameters = null)
-    {
-        $before = array();
-        if (isset($this->cacheActions[$action])) {
-            $this->cacheProvider->setEngine($this->cacheEngine);
-            $this->cacheProvider->setKey($action . ($parameters ? serialize($parameters) : ''));
-            $this->cacheProvider->setSecond($this->cacheActions[$action]);
-            $before[] = $this->cacheProvider;
-        }
-        
-        return $before;
-    }
-
-    public function getAfterBehaviors($action, array $parameters = null)
-    {
-        return array();
-    }
-
-    /**
-     * Render a widget
-     *
-     * @param mixed $action            
-     * @param array $parameters            
-     */
-    protected function widget($action, array $parameters = array())
-    {
-        $temp = $this->layout;
-        $this->layout = null;
-        if (strpos($action, '@'))
-            self::atInvoke($action, $parameters);
-        else
-            parent::runActionWithBehavior($action, $parameters);
-        $this->layout = $temp;
-        $this->response->sendContent();
-    }
-
     /**
      * Returns the request parameters that will be used for action parameter
      * binding.
@@ -114,6 +63,56 @@ class Controller extends Component
     }
 
     /**
+     *
+     * @param string $action            
+     */
+    public function beforeAction($actionID)
+    {}
+
+    /**
+     *
+     * @param string $actionID            
+     */
+    public function afterAction($actionID)
+    {}
+
+    /**
+     * (non-PHPdoc)
+     *
+     * @see \BJHaze\Foundation\Component::runAction()
+     */
+    public function runAction($actionID, array $parameters = array(), $fixParam = false)
+    {
+        if ('' == ($actionID = trim($actionID, '/')))
+            $actionID = $this->getDefaultAction();
+        $action = 'action' . $actionID;
+        if (method_exists($this, $action)) {
+            $this->beforeAction($actionID);
+            
+            $function = new ReflectionMethod($this, $action);
+            if ($fixParam)
+                $parameters = parent::fixParameters($function, array_merge($this->getActionParams(), $parameters));
+            $result = $function->invokeArgs($this, $parameters);
+            
+            $this->afterAction($actionID);
+            return $result;
+        } else
+            return $this->missingAction($actionID);
+    }
+
+    /**
+     * Render a widget
+     *
+     * @param string $widget            
+     * @param array $parameters            
+     */
+    protected function widget($widget, array $parameters = array())
+    {
+        $parameters['controller'] = $this;
+        (new $widget($parameters))->run();
+    }
+
+    /**
      * Processes the request using another action.
      *
      * @param string $path
@@ -121,9 +120,7 @@ class Controller extends Component
      */
     protected function forward($path)
     {
-        list ($action, $params) = $this->router->forward($path);
-        
-        return $this->runActionWithBehavior($action, $params);
+        return $this->router->forward($path);
     }
 
     /**
@@ -160,14 +157,17 @@ class Controller extends Component
      */
     protected function renderJSON(array $data)
     {
+        $this->response->setHeader('Content-Type', 'charset=utf8', true);
         $this->response->setHeader('Content-Type', 'application/json');
-        if ($this->response->getCharset() != 'utf8')
-            array_walk_recursive($data, function (&$item, $key)
+        
+        $charset = $this->response->getCharset();
+        if ($charset != 'utf8')
+            array_walk_recursive($data, function (&$item, $key) use ($charset)
             {
-                $item = mb_convert_encoding($item, 'utf8', $this->response->getCharset());
+                $item = mb_convert_encoding($item, 'utf8', $charset);
             });
         
-        $this->response->setContent(mb_convert_encoding(json_encode($data), $this->response->getCharset(), 'utf8'));
+        $this->response->setContent(json_encode($data));
     }
 
     /**
@@ -178,7 +178,7 @@ class Controller extends Component
     protected function renderXML($data)
     {
         $this->response->setHeader('Content-Type', 'text/xml');
-        $this->response->setContent(is_array($data) ? $this->writeXML($data) : $data);
+        $this->response->setContent(is_array($data) ? $this->writeXML($data, null, $this->response->getCharset()) : $data);
     }
 
     /**
@@ -188,10 +188,11 @@ class Controller extends Component
      * @param array $data            
      * @return void
      */
-    protected function render($view, array $data = null)
+    protected function render($view, array $data = array())
     {
         $this->beforeRender($view, $data);
-        $data['mainFile'] = $viewFile = $this->getViewFile($view);
+        
+        $viewFile = $this->getViewFile($view);
         extract($data);
         $this->response->setHeader('Content-Type', 'text/html');
         ob_start();
@@ -202,6 +203,7 @@ class Controller extends Component
         $content = ob_get_clean();
         // ob_end_clean();
         $this->response->setContent($content);
+        
         $this->afterRender();
     }
 
@@ -211,12 +213,12 @@ class Controller extends Component
      * @param array $data            
      * @param \XMLWriter $writer            
      */
-    protected function writeXML(array $data,\XMLWriter $writer = null)
+    protected function writeXML(array $data,\XMLWriter $writer = null, $charset = 'utf-8')
     {
         if (null == $writer) {
             $writer = new \XMLWriter();
             $writer->openMemory();
-            $writer->startDocument('1.0', 'utf-8');
+            $writer->startDocument('1.0', $charset);
             $writer->startElement('response');
             $this->writeXML($data, $writer);
             $writer->endElement();

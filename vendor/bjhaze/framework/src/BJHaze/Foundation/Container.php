@@ -27,14 +27,14 @@ abstract class Container implements ArrayAccess
     protected static $lateBindings = array();
 
     /**
-     * bind self
+     * Binding new item
+     *
+     * @param string $key            
+     * @param mixed $value            
      */
-    public function __construct()
+    public function bind($key, $value)
     {
-        $itemKey = strtolower(get_called_class());
-        
-        if (! isset(static::$bindings[$itemKey]))
-            static::$bindings[$itemKey] = $this;
+        static::$bindings[$key] = $value;
     }
 
     /**
@@ -96,7 +96,9 @@ abstract class Container implements ArrayAccess
                 $params[] = $parameters[$name];
             elseif ($parameter->isDefaultValueAvailable())
                 $params[] = $parameter->getDefaultValue();
-            elseif (array_key_exists($name, static::$lateBindings)) {
+            elseif (array_key_exists($name, static::$bindings)) {
+                $params[] = static::$bindings[$name];
+            } elseif (array_key_exists($name, static::$lateBindings)) {
                 $class = is_array(static::$lateBindings[$name]) ? static::$lateBindings[$name]['class'] : static::$lateBindings[$name];
                 if (is_a($class, $parameter->getClass()->name, true))
                     $params[] = static::getBinding($name);
